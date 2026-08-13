@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube to Facebook Auto-Poster</title>
+    <meta name="description" content="24/7 Cloud-based YouTube to Facebook automated video re-uploader dashboard">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Sidebar Navigation -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-icon">▶</div>
+        <div>
+            <h1>AutoPoster</h1>
+            <span class="brand-tag">YT → FB Cloud</span>
+        </div>
+    </div>
+    <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-tab="dashboard">
+            <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="#" class="nav-item" data-tab="channels">
+            <span class="nav-icon">📺</span> YouTube Channels
+        </a>
+        <a href="#" class="nav-item" data-tab="facebook">
+            <span class="nav-icon">📘</span> Facebook Pages
+        </a>
+        <a href="#" class="nav-item" data-tab="history">
+            <span class="nav-icon">📜</span> Upload History
+        </a>
+        <a href="#" class="nav-item" data-tab="logs">
+            <span class="nav-icon">📟</span> System Logs
+        </a>
+        <a href="#" class="nav-item" data-tab="settings">
+            <span class="nav-icon">⚙️</span> Settings
+        </a>
+    </nav>
+    <div class="sidebar-footer">
+        <button class="btn btn-sync" onclick="runSync()">
+            <span class="sync-icon" id="syncIcon">⚡</span> Run Sync Now
+        </button>
+        <div class="status-pill" id="statusPill">
+            <span class="pulse-dot"></span> Online & Monitoring
+        </div>
+        <div class="user-bar">
+            <div class="user-avatar">{{ user.display_name[0] | upper if user else 'U' }}</div>
+            <div class="user-info">
+                <span class="user-name">{{ user.display_name if user else 'User' }}</span>
+                <span class="user-role">@{{ user.username if user else '' }}</span>
+            </div>
+            <button class="btn-logout" onclick="logout()" title="Logout">🚪</button>
+        </div>
+    </div>
+</aside>
+
+<!-- Main Content -->
+<main class="main-content">
+
+    <!-- Mobile Header -->
+    <header class="mobile-header">
+        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+        <h2>AutoPoster</h2>
+        <button class="btn-logout" onclick="logout()" style="margin-left:auto" title="Logout">🚪</button>
+    </header>
+
+    <!-- Dashboard Tab -->
+    <section class="tab-content active" id="tab-dashboard">
+        <div class="page-header">
+            <h2>Dashboard</h2>
+            <p class="text-muted">Real-time system overview</p>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card stat-purple">
+                <div class="stat-value" id="statChannels">0</div>
+                <div class="stat-label">Active YT Channels</div>
+                <div class="stat-icon">📺</div>
+            </div>
+            <div class="stat-card stat-blue">
+                <div class="stat-value" id="statFB">0</div>
+                <div class="stat-label">Facebook Pages</div>
+                <div class="stat-icon">📘</div>
+            </div>
+            <div class="stat-card stat-green">
+                <div class="stat-value" id="statUploads">0</div>
+                <div class="stat-label">Videos Uploaded</div>
+                <div class="stat-icon">✅</div>
+            </div>
+            <div class="stat-card stat-orange">
+                <div class="stat-value" id="statInterval">1h</div>
+                <div class="stat-label">Sync Interval</div>
+                <div class="stat-icon">🔄</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Recent Uploads</h3>
+            <div id="recentUploads" class="table-wrap">
+                <p class="text-muted text-center">Loading...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- YouTube Channels Tab -->
+    <section class="tab-content" id="tab-channels">
+        <div class="page-header">
+            <h2>📺 YouTube Channels</h2>
+            <p class="text-muted">Add YouTube channel links to monitor for new videos</p>
+        </div>
+        <div class="card card-form">
+            <h3>Add New Channel</h3>
+            <form id="addChannelForm" onsubmit="addChannel(event)">
+                <div class="form-group">
+                    <label>YouTube Channel URL</label>
+                    <input type="text" id="chUrl" placeholder="https://www.youtube.com/@ChannelName" required>
+                </div>
+                <div class="form-group">
+                    <label>Channel Name (Optional)</label>
+                    <input type="text" id="chName" placeholder="e.g. Tech News Hindi">
+                </div>
+                <button type="submit" class="btn btn-primary">+ Add Channel</button>
+            </form>
+        </div>
+        <div class="card">
+            <h3>Managed Channels</h3>
+            <div id="channelsList">
+                <p class="text-muted text-center">Loading...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Facebook Settings Tab -->
+    <section class="tab-content" id="tab-facebook">
+        <div class="page-header">
+            <h2>📘 Facebook Page Settings</h2>
+            <p class="text-muted">Connect your Facebook Pages for auto-posting</p>
+        </div>
+        <div class="card card-form">
+            <h3>Add Facebook Page</h3>
+            <form id="addFBForm" onsubmit="addFB(event)">
+                <div class="form-group">
+                    <label>Facebook Page ID</label>
+                    <input type="text" id="fbPageId" placeholder="e.g. 100083928172635" required>
+                </div>
+                <div class="form-group">
+                    <label>Page Access Token</label>
+                    <textarea id="fbToken" placeholder="EAA..." rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Page Name (Optional)</label>
+                    <input type="text" id="fbName" placeholder="e.g. My Tech Page">
+                </div>
+                <button type="submit" class="btn btn-primary">🔐 Save Credentials</button>
+            </form>
+        </div>
+        <div class="card">
+            <h3>Connected Pages</h3>
+            <div id="fbList">
+                <p class="text-muted text-center">Loading...</p>
+            </div>
+        </div>
+        <div class="card card-guide">
+            <h3>❓ Facebook Access Token Kaise Prapt Karein?</h3>
+            <ol>
+                <li><a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a> par jayein aur Login karein.</li>
+                <li>Ek new <strong>App</strong> create karein (Type: Business).</li>
+                <li><strong>Tools → Graph API Explorer</strong> open karein.</li>
+                <li>Dropdown se apna <strong>Facebook Page select</strong> karein.</li>
+                <li>Permissions add karein: <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code></li>
+                <li><strong>Generate Access Token</strong> par click karke token yahan paste karein!</li>
+            </ol>
+        </div>
+    </section>
+
+    <!-- History Tab -->
+    <section class="tab-content" id="tab-history">
+        <div class="page-header">
+            <h2>📜 Upload History</h2>
+            <p class="text-muted">All video upload attempts and their status</p>
+        </div>
+        <div class="card">
+            <div id="historyTable" class="table-wrap">
+                <p class="text-muted text-center">Loading...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Logs Tab -->
+    <section class="tab-content" id="tab-logs">
+        <div class="page-header">
+            <div class="page-header-row">
+                <div>
+                    <h2>📟 System Logs</h2>
+                    <p class="text-muted">Real-time activity logs</p>
+                </div>
+                <button class="btn btn-danger-sm" onclick="clearLogs()">🗑️ Clear Logs</button>
+            </div>
+        </div>
+        <div class="card">
+            <div id="logsTable" class="table-wrap">
+                <p class="text-muted text-center">Loading...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Settings Tab -->
+    <section class="tab-content" id="tab-settings">
+        <div class="page-header">
+            <h2>⚙️ Settings</h2>
+            <p class="text-muted">Configure auto-sync behavior</p>
+        </div>
+        <div class="card card-form">
+            <form id="settingsForm" onsubmit="saveSettings(event)">
+                <div class="form-group">
+                    <label>Auto-Sync Interval (Hours)</label>
+                    <select id="settInterval">
+                        <option value="0.5">Every 30 Minutes</option>
+                        <option value="1" selected>Every 1 Hour</option>
+                        <option value="2">Every 2 Hours</option>
+                        <option value="3">Every 3 Hours</option>
+                        <option value="6">Every 6 Hours</option>
+                        <option value="12">Every 12 Hours</option>
+                        <option value="24">Every 24 Hours</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Max Videos Per Sync</label>
+                    <select id="settMaxVid">
+                        <option value="1">1 video</option>
+                        <option value="3" selected>3 videos</option>
+                        <option value="5">5 videos</option>
+                        <option value="10">10 videos</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">💾 Save Settings</button>
+            </form>
+        </div>
+    </section>
+
+</main>
+
+<!-- Toast Notification -->
+<div class="toast" id="toast"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

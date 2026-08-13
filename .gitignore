@@ -1,0 +1,8 @@
+temp_downloads/
+*.db
+__pycache__/
+.env
+*.pyc
+dist/
+build/
+*.spec
