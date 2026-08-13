@@ -25,12 +25,13 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""")
 
-        # Channels table (per-user)
+        # Channels table (per-user) with target FB pages mapping
         c.execute("""CREATE TABLE IF NOT EXISTS channels (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             channel_url TEXT NOT NULL,
             channel_name TEXT,
+            target_fb_pages TEXT DEFAULT 'all',
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_active INTEGER DEFAULT 1,
             UNIQUE(user_id, channel_url),
@@ -141,23 +142,33 @@ def get_user_by_id(user_id):
         return dict(user) if user else None
 
 # ===== Channel Functions (per-user) =====
-def add_channel(user_id, url, name=None):
+def add_channel(user_id, url, name=None, target_fb_pages="all"):
     url = url.strip()
     if not url:
         return False, "URL khali nahi ho sakta."
     try:
         with get_connection() as conn:
             conn.cursor().execute(
-                "INSERT INTO channels (user_id, channel_url, channel_name) VALUES (?, ?, ?)",
-                (user_id, url, name or url)
+                "INSERT INTO channels (user_id, channel_url, channel_name, target_fb_pages) VALUES (?, ?, ?, ?)",
+                (user_id, url, name or url, target_fb_pages or "all")
             )
             conn.commit()
-        log_activity(user_id, "INFO", f"Channel added: {url}")
+        log_activity(user_id, "INFO", f"Channel added: {url} (Target FB: {target_fb_pages})")
         return True, "Channel add ho gaya!"
     except sqlite3.IntegrityError:
         return False, "Yeh channel pehle se add hai."
     except Exception as e:
         return False, str(e)
+
+def update_channel_target(user_id, cid, target_fb_pages):
+    with get_connection() as conn:
+        conn.cursor().execute(
+            "UPDATE channels SET target_fb_pages=? WHERE id=? AND user_id=?",
+            (target_fb_pages or "all", cid, user_id)
+        )
+        conn.commit()
+    log_activity(user_id, "INFO", f"Updated channel {cid} mapping to FB pages: {target_fb_pages}")
+    return True
 
 def get_channels(user_id):
     with get_connection() as conn:

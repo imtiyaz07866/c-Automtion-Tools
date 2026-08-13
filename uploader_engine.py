@@ -74,8 +74,13 @@ def run_sync_for_user(user_id):
     total = 0
     for ch in channels:
         db.log_activity(user_id, "INFO", f"Checking: {ch['channel_url']}")
+        target_pages = ch.get('target_fb_pages', 'all') or 'all'
+        target_ids = [p.strip() for p in target_pages.split(',')] if target_pages != 'all' else None
+
         for vid in fetch_latest_videos(ch['channel_url'], mx):
             for fb in fb_creds:
+                if target_ids and fb['page_id'] not in target_ids:
+                    continue
                 if db.is_video_processed(user_id, vid['id'], fb['page_id']): continue
                 db.log_activity(user_id, "INFO", f"New video: '{vid['title']}' -> FB {fb['page_id']}")
                 ok, path, title, desc = download_video(vid['url'], vid['id'])

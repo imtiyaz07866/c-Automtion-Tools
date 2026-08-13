@@ -79,8 +79,15 @@ def api_get_channels():
 @login_required
 def api_add_channel():
     d = request.json
-    ok, msg = db.add_channel(get_uid(), d.get("url",""), d.get("name"))
+    ok, msg = db.add_channel(get_uid(), d.get("url",""), d.get("name"), d.get("target_fb_pages", "all"))
     return jsonify({"success": ok, "message": msg})
+
+@app.route("/api/channels/<int:cid>/target", methods=["PUT"])
+@login_required
+def api_update_channel_target(cid):
+    d = request.json
+    db.update_channel_target(get_uid(), cid, d.get("target_fb_pages", "all"))
+    return jsonify({"success": True, "message": "Target FB Pages updated!"})
 
 @app.route("/api/channels/<int:cid>", methods=["DELETE"])
 @login_required

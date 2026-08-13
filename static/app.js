@@ -90,9 +90,22 @@ async function loadDashboard() {
 
 // ===== Channels =====
 async function loadChannels() {
-    const channels = await api('/api/channels');
-    const el = document.getElementById('channelsList');
+    const [channels, fbList] = await Promise.all([
+        api('/api/channels'),
+        api('/api/facebook')
+    ]);
 
+    // Populate Add Form FB Target dropdown
+    const targetSelect = document.getElementById('chTargetFb');
+    if (targetSelect) {
+        let optHtml = '<option value="all">🌐 All Connected FB Pages</option>';
+        fbList.forEach(fb => {
+            optHtml += `<option value="${esc(fb.page_id)}">📘 ${esc(fb.page_name)} (${esc(fb.page_id)})</option>`;
+        });
+        targetSelect.innerHTML = optHtml;
+    }
+
+    const el = document.getElementById('channelsList');
     if (channels.length === 0) {
         el.innerHTML = `<div class="empty-state">
             <div class="empty-icon">📺</div>
@@ -104,10 +117,25 @@ async function loadChannels() {
     let html = '';
     channels.forEach(ch => {
         const isActive = ch.is_active;
+        const currentTarget = ch.target_fb_pages || 'all';
+
+        let fbOptions = `<option value="all" ${currentTarget === 'all' ? 'selected' : ''}>🌐 All FB Pages</option>`;
+        fbList.forEach(fb => {
+            const sel = currentTarget === fb.page_id ? 'selected' : '';
+            fbOptions += `<option value="${esc(fb.page_id)}" ${sel}>📘 ${esc(fb.page_name)}</option>`;
+        });
+
         html += `<div class="list-item">
             <div class="list-item-info">
                 <div class="list-item-title">${esc(ch.channel_name || 'Channel')}</div>
                 <div class="list-item-sub">${esc(ch.channel_url)}</div>
+                <div style="margin-top:6px; font-size:0.8rem; color:var(--text-muted);">
+                    Posting to: 
+                    <select style="padding:2px 8px; font-size:0.78rem; border-radius:4px; background:var(--bg-input); color:var(--text); border:1px solid var(--border);"
+                            onchange="updateChannelTarget(${ch.id}, this.value)">
+                        ${fbOptions}
+                    </select>
+                </div>
             </div>
             <div class="list-item-actions">
                 <button class="btn-toggle ${isActive ? 'active' : 'inactive'}"
@@ -121,12 +149,17 @@ async function loadChannels() {
     el.innerHTML = html;
 }
 
+async function updateChannelTarget(id, target_fb_pages) {
+    const res = await api('/api/channels/' + id + '/target', 'PUT', { target_fb_pages });
+    showToast(res.message || 'Mapping updated!');
+}
+
 async function addChannel(e) {
     e.preventDefault();
     const url = document.getElementById('chUrl').value.trim();
-    const name = document.getElementById('chName').value.trim();
+    const target_fb_pages = document.getElementById('chTargetFb') ? document.getElementById('chTargetFb').value : 'all';
     if (!url) return;
-    const res = await api('/api/channels', 'POST', { url, name });
+    const res = await api('/api/channels', 'POST', { url, name: url, target_fb_pages });
     showToast(res.message, res.success ? 'success' : 'error');
     if (res.success) {
         document.getElementById('addChannelForm').reset();
