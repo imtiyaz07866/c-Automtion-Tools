@@ -285,12 +285,29 @@ def delete_fb_credential(user_id, pid):
         conn.commit()
 
 # ===== Upload History (per-user) =====
-def is_video_processed(user_id, vid, pid):
+def is_video_processed(user_id, vid, pid, title=None):
     with get_connection() as conn:
-        return conn.cursor().execute(
+        # Check by video ID
+        row = conn.cursor().execute(
             "SELECT id FROM upload_history WHERE user_id=? AND yt_video_id=? AND fb_page_id=? AND status='success'",
             (user_id, vid, pid)
-        ).fetchone() is not None
+        ).fetchone()
+        if row:
+            return True
+            
+        # Anti-Duplicate Guard: Check by Title similarity
+        if title and title.strip():
+            clean_title = title.strip().lower()
+            rows = conn.cursor().execute(
+                "SELECT yt_video_title FROM upload_history WHERE user_id=? AND fb_page_id=? AND status='success'",
+                (user_id, pid)
+            ).fetchall()
+            for r in rows:
+                existing = (r['yt_video_title'] or '').strip().lower()
+                if existing and len(clean_title) > 5 and (clean_title == existing or clean_title in existing or existing in clean_title):
+                    return True
+                    
+        return False
 
 def record_upload(user_id, vid, title, ch_url, fb_pid, fb_post_id, status, err=None):
     with get_connection() as conn:

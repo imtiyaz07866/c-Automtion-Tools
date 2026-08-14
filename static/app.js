@@ -517,13 +517,17 @@ async function loadSettings() {
     const s = await api('/api/settings');
     document.getElementById('settInterval').value = s.check_interval_hours;
     document.getElementById('settMaxVid').value = s.max_videos_per_sync;
+    if (document.getElementById('settGeminiKey')) {
+        document.getElementById('settGeminiKey').value = s.gemini_api_key || '';
+    }
 }
 
 async function saveSettings(e) {
     e.preventDefault();
     const check_interval_hours = document.getElementById('settInterval').value;
     const max_videos_per_sync = document.getElementById('settMaxVid').value;
-    const res = await api('/api/settings', 'POST', { check_interval_hours, max_videos_per_sync });
+    const gemini_api_key = document.getElementById('settGeminiKey') ? document.getElementById('settGeminiKey').value.trim() : '';
+    const res = await api('/api/settings', 'POST', { check_interval_hours, max_videos_per_sync, gemini_api_key });
     showToast(res.message, res.success ? 'success' : 'error');
     loadDashboard();
 }
