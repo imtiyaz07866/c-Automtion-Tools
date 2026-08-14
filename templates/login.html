@@ -568,6 +568,9 @@
             document.querySelectorAll('.auth-tab')[1].classList.add('active');
             document.getElementById('registerForm').classList.add('active');
         }
+        hideMsg();
+    }
+
     function togglePass(inputId, btn) {
         const input = document.getElementById(inputId);
         if (!input) return;
