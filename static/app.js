@@ -302,6 +302,14 @@ async function addFB(e) {
     }
 }
 
+function triggerDirectFBLogin() {
+    const user_token = prompt("🔵 Paste your Facebook Access Token / User Token to connect Facebook Account & fetch all pages in 1-Click:");
+    if (!user_token || !user_token.trim()) return;
+    document.getElementById('userFBToken').value = user_token.trim();
+    const fakeEvent = { preventDefault: () => {} };
+    fetchUserFBPages(fakeEvent);
+}
+
 let fetchedPagesData = [];
 
 async function fetchUserFBPages(e) {
