@@ -233,14 +233,20 @@ def upload_to_fb(file_path, title, desc, page_id, token, user_id=None):
     return False, None, err
 
 def generate_gemini_title_and_desc(user_id, title, desc):
-    """Uses Google Gemini 1.5/2.0 Flash Free API to generate viral, engaging title & description for FB."""
+    """Uses Google Gemini Free API to generate viral, engaging title & description for FB."""
     api_key = db.get_setting(user_id, "gemini_api_key", "").strip()
     if not api_key:
         return title, desc
         
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        prompt = f"""You are a professional social media viral content creator. 
+    models_to_try = [
+        "gemini-3.7-flash-video-understanding-eap",
+        "gemini-2.5-flash",
+        "gemini-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-2.0-flash"
+    ]
+    
+    prompt = f"""You are a professional social media viral content creator. 
 Rewrite the following YouTube video title and description to be extremely engaging, catchy, and optimized for Facebook Reels / Video post with emojis and 5 trending hashtags.
 
 Original Title: {title}
@@ -249,25 +255,26 @@ Original Description: {desc[:300] if desc else ''}
 IMPORTANT: Reply strictly in JSON format as follows with no markdown codeblocks:
 {{"viral_title": "Short Catchy Viral Title with Emojis", "viral_description": "Engaging post description with emojis and #hashtags"}}"""
 
-        headers = {'Content-Type': 'application/json'}
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}]
-        }
-        
-        r = requests.post(url, json=payload, headers=headers, timeout=15)
-        if r.status_code == 200:
-            j = r.json()
-            raw_text = j['candidates'][0]['content']['parts'][0]['text']
-            import json, re
-            clean_json = re.sub(r'```json\s*|\s*```', '', raw_text).strip()
-            parsed = json.loads(clean_json)
-            ai_title = parsed.get('viral_title', title)
-            ai_desc = parsed.get('viral_description', desc)
-            db.log_activity(user_id, "INFO", f"🤖 Gemini AI generated viral title: '{ai_title}'")
-            return ai_title, ai_desc
-    except Exception as e:
-        db.log_activity(user_id, "WARNING", f"Gemini AI API call skipped: {e}")
-        
+    headers = {'Content-Type': 'application/json'}
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    
+    for model in models_to_try:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            r = requests.post(url, json=payload, headers=headers, timeout=12)
+            if r.status_code == 200:
+                j = r.json()
+                raw_text = j['candidates'][0]['content']['parts'][0]['text']
+                import json, re
+                clean_json = re.sub(r'```json\s*|\s*```', '', raw_text).strip()
+                parsed = json.loads(clean_json)
+                ai_title = parsed.get('viral_title', title)
+                ai_desc = parsed.get('viral_description', desc)
+                db.log_activity(user_id, "INFO", f"🤖 Gemini AI generated viral title: '{ai_title}'")
+                return ai_title, ai_desc
+        except Exception as e:
+            continue
+            
     return title, desc
 
 def run_sync_for_user(user_id):
