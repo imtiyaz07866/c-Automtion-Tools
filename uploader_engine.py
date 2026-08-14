@@ -121,35 +121,116 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
 
     return False, "File not found", "", ""
 
+def upload_to_fb_resumable(file_path, title, desc, page_id, token, user_id=None):
+    """Uploads large/long 4K videos using Facebook Graph API Resumable Upload protocol."""
+    try:
+        file_size = os.path.getsize(file_path)
+        url_base = f"https://graph-video.facebook.com/v19.0/{page_id}/videos"
+        
+        # 1. PHASE START
+        start_payload = {
+            'upload_phase': 'start',
+            'file_size': file_size,
+            'access_token': token
+        }
+        r = requests.post(url_base, data=start_payload, timeout=60)
+        j = r.json()
+        if r.status_code != 200 or 'upload_session_id' not in j:
+            # Fallback to /me/videos endpoint
+            url_base = "https://graph-video.facebook.com/v19.0/me/videos"
+            r = requests.post(url_base, data=start_payload, timeout=60)
+            j = r.json()
+            if r.status_code != 200 or 'upload_session_id' not in j:
+                err = j.get('error', {}).get('message', r.text)
+                return False, None, f"Upload Start Failed: {err}"
+
+        session_id = j['upload_session_id']
+        start_offset = int(j.get('start_offset', 0))
+        end_offset = int(j.get('end_offset', file_size))
+        
+        # 2. PHASE TRANSFER (Chunked 8MB transfers)
+        with open(file_path, 'rb') as f:
+            while start_offset < file_size:
+                f.seek(start_offset)
+                chunk = f.read(end_offset - start_offset)
+                
+                transfer_payload = {
+                    'upload_phase': 'transfer',
+                    'upload_session_id': session_id,
+                    'start_offset': start_offset,
+                    'access_token': token
+                }
+                
+                tr = requests.post(
+                    url_base, 
+                    data=transfer_payload, 
+                    files={'video_file_chunk': chunk}, 
+                    timeout=300
+                )
+                tj = tr.json()
+                
+                if tr.status_code != 200 or 'start_offset' not in tj:
+                    terr = tj.get('error', {}).get('message', tr.text)
+                    return False, None, f"Chunk Transfer Failed: {terr}"
+                    
+                start_offset = int(tj['start_offset'])
+                end_offset = int(tj.get('end_offset', file_size))
+                
+                if user_id and file_size > 0:
+                    pct = round((start_offset / file_size) * 100, 1)
+                    mb_up = round(start_offset / (1024 * 1024), 1)
+                    mb_tot = round(file_size / (1024 * 1024), 1)
+                    db.set_setting(user_id, "active_progress", f"⬆️ Uploading to FB: {pct}% ({mb_up}MB / {mb_tot}MB)")
+
+        # 3. PHASE FINISH
+        finish_payload = {
+            'upload_phase': 'finish',
+            'upload_session_id': session_id,
+            'title': (title or "Video")[:255],
+            'description': f"{title}\n\n{(desc or '')[:400]}",
+            'access_token': token
+        }
+        fr = requests.post(url_base, data=finish_payload, timeout=60)
+        fj = fr.json()
+        if fr.status_code == 200 and (fj.get('success') or 'id' in fj):
+            video_id = fj.get('id', session_id)
+            if user_id:
+                db.set_setting(user_id, "active_progress", "✅ 100% Complete! Video Uploaded!")
+            return True, video_id, None
+        else:
+            ferr = fj.get('error', {}).get('message', fr.text)
+            return False, None, f"Upload Finish Failed: {ferr}"
+
+    except Exception as e:
+        return False, None, str(e)
+
 def upload_to_fb(file_path, title, desc, page_id, token, user_id=None):
-    if user_id:
-        db.set_setting(user_id, "active_progress", "⬆️ Uploading to Facebook: 15%...")
+    # Try Resumable Chunked Upload first for large/long 4K videos
+    ok, vid, err = upload_to_fb_resumable(file_path, title, desc, page_id, token, user_id)
+    if ok:
+        return True, vid, None
+        
+    # Fallback to single-POST upload if resumable returns unsupported error
     endpoints = [
         f"https://graph-video.facebook.com/v19.0/{page_id}/videos",
-        "https://graph-video.facebook.com/v19.0/me/videos",
-        f"https://graph.facebook.com/v19.0/{page_id}/videos",
-        "https://graph.facebook.com/v19.0/me/videos"
+        "https://graph-video.facebook.com/v19.0/me/videos"
     ]
     payload = {'title': (title or "Video")[:255], 'description': f"{title}\n\n{(desc or '')[:400]}", 'access_token': token}
     
-    last_error = "Unknown FB API Error"
-    for idx, url in enumerate(endpoints):
+    for url in endpoints:
         try:
-            if user_id:
-                pct = 25 * (idx + 1)
-                db.set_setting(user_id, "active_progress", f"⬆️ Uploading to Facebook: {pct}%...")
             with open(file_path, 'rb') as f:
                 r = requests.post(url, data=payload, files={'source': f}, timeout=600)
-            j = r.json()
-            if r.status_code == 200 and 'id' in j:
-                if user_id:
-                    db.set_setting(user_id, "active_progress", "✅ 100% Complete! Video Uploaded!")
-                return True, j['id'], None
-            last_error = j.get('error', {}).get('message', r.text)
-        except Exception as err:
-            last_error = str(err)
+            if r.status_code == 200:
+                j = r.json()
+                if 'id' in j:
+                    if user_id:
+                        db.set_setting(user_id, "active_progress", "✅ 100% Complete! Video Uploaded!")
+                    return True, j['id'], None
+        except Exception:
+            pass
             
-    return False, None, last_error
+    return False, None, err
 
 def run_sync_for_user(user_id):
     """Run sync for a specific user."""
