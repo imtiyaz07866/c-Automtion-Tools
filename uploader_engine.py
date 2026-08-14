@@ -30,9 +30,29 @@ def fetch_latest_videos(channel_url, max_results=3):
         pass
     return videos
 
+def get_ffmpeg_path():
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except:
+        return None
+
 def download_video(video_url, video_id):
     out = os.path.join(TEMP_DIR, f"{video_id}.%(ext)s")
-    opts = {'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', 'outtmpl': out, 'quiet': True, 'no_warnings': True, 'merge_output_format': 'mp4'}
+    ff_path = get_ffmpeg_path()
+    
+    opts = {
+        'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
+        'outtmpl': out,
+        'quiet': True,
+        'no_warnings': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'extractor_args': {'youtube': {'player_client': ['android', 'web']}}
+    }
+    if ff_path:
+        opts['ffmpeg_location'] = ff_path
+        opts['merge_output_format'] = 'mp4'
+
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(video_url, download=True)
@@ -43,9 +63,30 @@ def download_video(video_url, video_id):
             if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
             m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
             if m: return True, m[0], info.get('title',''), info.get('description','')
-            return False, "File not found", "", ""
     except Exception as e:
-        return False, str(e), "", ""
+        # Fallback to single stream format requiring no ffmpeg merging
+        try:
+            opts_fallback = {
+                'format': 'best',
+                'outtmpl': out,
+                'quiet': True,
+                'no_warnings': True,
+            }
+            if ff_path:
+                opts_fallback['ffmpeg_location'] = ff_path
+            with yt_dlp.YoutubeDL(opts_fallback) as ydl:
+                info = ydl.extract_info(video_url, download=True)
+                fn = ydl.prepare_filename(info)
+                base, _ = os.path.splitext(fn)
+                mp4 = f"{base}.mp4"
+                if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
+                if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
+                m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
+                if m: return True, m[0], info.get('title',''), info.get('description','')
+        except Exception as err2:
+            return False, str(err2), "", ""
+
+    return False, "File not found", "", ""
 
 def upload_to_fb(file_path, title, desc, page_id, token):
     url = f"https://graph-video.facebook.com/v19.0/{page_id}/videos"
