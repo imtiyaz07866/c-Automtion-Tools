@@ -19,24 +19,25 @@ def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
-            session['user_id'] = 1  # Auto-login primary user
+            if request.is_json or request.path.startswith('/api/'):
+                return jsonify({"error": "Not logged in", "redirect": "/login"}), 401
+            return redirect(url_for('login_page'))
         return f(*args, **kwargs)
     return decorated
 
 def get_uid():
-    if 'user_id' not in session:
-        session['user_id'] = 1
-    return session.get('user_id', 1)
+    return session.get('user_id')
 
 # ===== Pages =====
 @app.route("/login")
 def login_page():
+    if 'user_id' in session:
+        return redirect("/")
     return render_template("login.html")
 
 @app.route("/")
+@login_required
 def index():
-    if 'user_id' not in session:
-        session['user_id'] = 1
     return render_template("index.html", user=db.get_user_by_id(get_uid()))
 
 # ===== Auth API =====
