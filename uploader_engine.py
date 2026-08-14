@@ -149,8 +149,8 @@ def run_sync_for_user(user_id):
 import secrets
 
 def run_manual_post_for_user(user_id, video_url, target_fb_pages="all", custom_title=None, custom_desc=None):
-    """Manually post a specific video URL to target FB pages."""
-    db.log_activity(user_id, "INFO", f"Manual post process started for video: {video_url}")
+    """Manually post a specific video or latest video from channel to target FB pages."""
+    db.log_activity(user_id, "INFO", f"Manual post process started for link: {video_url}")
     fb_creds = db.get_fb_credentials(user_id)
     if not fb_creds:
         db.log_activity(user_id, "WARNING", "No Facebook Page connected for manual upload.")
@@ -158,8 +158,20 @@ def run_manual_post_for_user(user_id, video_url, target_fb_pages="all", custom_t
         
     target_ids = [p.strip() for p in target_fb_pages.split(',')] if target_fb_pages != 'all' else None
     
+    # Auto-resolve channel links to their latest video URL
+    actual_url = video_url
+    if any(k in video_url.lower() for k in ['/@', '/channel/', '/c/', '/user/']) and not any(k in video_url.lower() for k in ['watch?', '/shorts/', '/v/']):
+        db.log_activity(user_id, "INFO", f"Detected channel link. Fetching latest video from: {video_url}")
+        vids = fetch_latest_videos(video_url, 1)
+        if vids:
+            actual_url = vids[0]['url']
+            db.log_activity(user_id, "INFO", f"Found latest video: '{vids[0]['title']}' ({actual_url})")
+        else:
+            db.log_activity(user_id, "ERROR", f"Could not find any videos in channel: {video_url}")
+            return
+            
     vid = "manual_" + secrets.token_hex(6)
-    ok, path, yt_title, yt_desc = download_video(video_url, vid)
+    ok, path, yt_title, yt_desc = download_video(actual_url, vid)
     if not ok:
         db.log_activity(user_id, "ERROR", f"Manual video download failed: {path}")
         return
