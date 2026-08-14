@@ -46,17 +46,21 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )""")
 
-        # Facebook Credentials (per-user)
+        # Facebook Credentials (per-user) with Backup Token Support
         c.execute("""CREATE TABLE IF NOT EXISTS fb_credentials (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             page_id TEXT NOT NULL,
             page_name TEXT,
             access_token TEXT NOT NULL,
+            backup_token TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, page_id),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )""")
+        
+        try: c.execute("ALTER TABLE fb_credentials ADD COLUMN backup_token TEXT")
+        except: pass
 
         # Upload History (per-user)
         c.execute("""CREATE TABLE IF NOT EXISTS upload_history (
@@ -225,17 +229,20 @@ def toggle_channel(user_id, cid, active):
         conn.commit()
 
 # ===== Facebook Credentials (per-user) =====
-def save_fb_credentials(user_id, page_id, token, name=None):
+def save_fb_credentials(user_id, page_id, token, name=None, backup_token=None):
     try:
         with get_connection() as conn:
-            conn.cursor().execute("""INSERT INTO fb_credentials (user_id, page_id, access_token, page_name, updated_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(user_id, page_id) DO UPDATE SET access_token=excluded.access_token,
-                page_name=COALESCE(excluded.page_name, fb_credentials.page_name), updated_at=CURRENT_TIMESTAMP
-            """, (user_id, page_id.strip(), token.strip(), name or f"Page-{page_id}"))
+            conn.cursor().execute("""INSERT INTO fb_credentials (user_id, page_id, access_token, backup_token, page_name, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id, page_id) DO UPDATE SET 
+                access_token = excluded.access_token,
+                backup_token = COALESCE(excluded.backup_token, fb_credentials.backup_token),
+                page_name = COALESCE(excluded.page_name, fb_credentials.page_name),
+                updated_at = CURRENT_TIMESTAMP
+            """, (user_id, page_id.strip(), token.strip(), (backup_token or "").strip() or None, name or f"Page-{page_id}"))
             conn.commit()
-        log_activity(user_id, "INFO", f"FB credentials saved: {page_id}")
-        return True, "Facebook page save ho gaya!"
+        log_activity(user_id, "INFO", f"FB credentials saved for Page {page_id}")
+        return True, "Facebook credentials saved!"
     except Exception as e:
         return False, str(e)
 

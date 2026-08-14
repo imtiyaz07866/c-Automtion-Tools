@@ -89,12 +89,18 @@ def run_sync_for_user(user_id):
                     db.log_activity(user_id, "ERROR", f"Download failed: {path}")
                     continue
                 uok, pid, uerr = upload_to_fb(path, title or vid['title'], desc, fb['page_id'], fb['access_token'])
+                if not uok and fb.get('backup_token'):
+                    db.log_activity(user_id, "WARNING", f"Primary token failed for FB Page {fb['page_id']}. Trying Backup Token...")
+                    uok, pid, uerr = upload_to_fb(path, title or vid['title'], desc, fb['page_id'], fb['backup_token'])
+                    if uok:
+                        db.log_activity(user_id, "INFO", f"Backup Token succeeded! Video ID: {pid}")
+
                 db.record_upload(user_id, vid['id'], title or vid['title'], ch['channel_url'], fb['page_id'], pid, 'success' if uok else 'failed', uerr)
                 if uok:
                     total += 1
                     db.log_activity(user_id, "INFO", f"Posted! FB Video ID: {pid}")
                 else:
-                    db.log_activity(user_id, "ERROR", f"FB upload failed: {uerr}")
+                    db.log_activity(user_id, "ERROR", f"FB upload failed on primary & backup: {uerr}")
                 try: os.remove(path)
                 except: pass
     db.log_activity(user_id, "INFO", f"Sync done. Posted: {total}")

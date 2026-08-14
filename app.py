@@ -154,8 +154,42 @@ def api_get_fb():
 @login_required
 def api_add_fb():
     d = request.json
-    ok, msg = db.save_fb_credentials(get_uid(), d.get("page_id",""), d.get("access_token",""), d.get("page_name"))
+    ok, msg = db.save_fb_credentials(get_uid(), d.get("page_id",""), d.get("access_token",""), d.get("page_name"), d.get("backup_token"))
     return jsonify({"success": ok, "message": msg})
+
+@app.route("/api/facebook/exchange-token", methods=["POST"])
+@login_required
+def api_exchange_fb_token():
+    d = request.json or {}
+    short_token = d.get("short_lived_token", "").strip()
+    app_id = d.get("app_id", "").strip()
+    app_secret = d.get("app_secret", "").strip()
+    
+    if not short_token or not app_id or not app_secret:
+        return jsonify({"success": False, "message": "Short-lived token, App ID, and App Secret required!"}), 400
+        
+    url = "https://graph.facebook.com/v19.0/oauth/access_token"
+    params = {
+        "grant_type": "fb_exchange_token",
+        "client_id": app_id,
+        "client_secret": app_secret,
+        "fb_exchange_token": short_token
+    }
+    try:
+        import requests
+        res = requests.get(url, params=params, timeout=15)
+        data = res.json()
+        if "access_token" in data:
+            return jsonify({
+                "success": True, 
+                "message": "Long-lived Permanent Token generated!", 
+                "long_lived_token": data["access_token"]
+            })
+        else:
+            err = data.get("error", {}).get("message", res.text)
+            return jsonify({"success": False, "message": f"Exchange failed: {err}"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
 
 @app.route("/api/facebook/<pid>", methods=["DELETE"])
 @login_required

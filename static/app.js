@@ -197,9 +197,10 @@ async function loadFB() {
 
     let html = '';
     list.forEach(fb => {
+        const hasBackup = fb.backup_token ? '<span class="badge badge-success">🛡️ Backup Token Active</span>' : '<span class="badge badge-warn">Primary Only</span>';
         html += `<div class="list-item">
             <div class="list-item-info">
-                <div class="list-item-title">${esc(fb.page_name || 'Page')}</div>
+                <div class="list-item-title">${esc(fb.page_name || 'Page')} &nbsp; ${hasBackup}</div>
                 <div class="list-item-sub">Page ID: ${esc(fb.page_id)} &nbsp;|&nbsp; Token: ${esc(fb.token_preview)}</div>
             </div>
             <div class="list-item-actions">
@@ -214,14 +215,37 @@ async function addFB(e) {
     e.preventDefault();
     const page_id = document.getElementById('fbPageId').value.trim();
     const access_token = document.getElementById('fbToken').value.trim();
+    const backup_token = document.getElementById('fbBackupToken') ? document.getElementById('fbBackupToken').value.trim() : '';
     const page_name = document.getElementById('fbName').value.trim();
-    if (!page_id || !access_token) return showToast('Page ID and Token are required!', 'error');
-    const res = await api('/api/facebook', 'POST', { page_id, access_token, page_name });
+    if (!page_id || !access_token) return showToast('Page ID and Primary Token are required!', 'error');
+    const res = await api('/api/facebook', 'POST', { page_id, access_token, backup_token, page_name });
     showToast(res.message, res.success ? 'success' : 'error');
     if (res.success) {
         document.getElementById('addFBForm').reset();
         loadFB();
         loadDashboard();
+    }
+}
+
+async function exchangeFBToken(e) {
+    e.preventDefault();
+    const short_lived_token = document.getElementById('exShortToken').value.trim();
+    const app_id = document.getElementById('exAppId').value.trim();
+    const app_secret = document.getElementById('exAppSecret').value.trim();
+    const resultDiv = document.getElementById('exchangeResult');
+    resultDiv.innerHTML = '<p style="color:var(--orange);">⏳ Converting token via Facebook Graph API...</p>';
+    
+    const res = await api('/api/facebook/exchange-token', 'POST', { short_lived_token, app_id, app_secret });
+    if (res.success && res.long_lived_token) {
+        resultDiv.innerHTML = `<div style="padding:12px; background:rgba(52,211,153,0.1); border:1px solid var(--green); border-radius:8px; word-break:break-all;">
+            <p style="color:var(--green); font-weight:600;">✅ Long-Lived Permanent Token Generated!</p>
+            <textarea readonly style="width:100%; margin-top:8px; font-size:0.8rem; background:var(--bg-input); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:6px;" rows="3">${esc(res.long_lived_token)}</textarea>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Copy this token and paste it in the Primary/Backup Token field above.</p>
+        </div>`;
+        showToast('Long-lived token generated!');
+    } else {
+        resultDiv.innerHTML = `<p style="color:var(--red);">❌ ${esc(res.message)}</p>`;
+        showToast(res.message || 'Token exchange failed', 'error');
     }
 }
 

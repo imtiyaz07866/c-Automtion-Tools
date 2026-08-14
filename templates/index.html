@@ -148,16 +148,43 @@
                     <input type="text" id="fbPageId" placeholder="e.g. 100083928172635" required>
                 </div>
                 <div class="form-group">
-                    <label>Page Access Token</label>
-                    <textarea id="fbToken" placeholder="EAA..." rows="3" required></textarea>
+                    <label>Primary Page Access Token</label>
+                    <textarea id="fbToken" placeholder="EAA..." rows="2" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Secondary / Backup Token (Optional - Anti-Ban Safety)</label>
+                    <textarea id="fbBackupToken" placeholder="EAA... (Secondary admin profile token if primary token gets restricted)" rows="2"></textarea>
                 </div>
                 <div class="form-group">
                     <label>Page Name (Optional)</label>
-                    <input type="text" id="fbName" placeholder="e.g. My Tech Page">
+                    <input type="text" id="fbName" placeholder="e.g. My Official Page">
                 </div>
-                <button type="submit" class="btn btn-primary">🔐 Save Credentials</button>
+                <button type="submit" class="btn btn-primary">🔐 Save Facebook Credentials</button>
             </form>
         </div>
+
+        <!-- Token Converter Tool -->
+        <div class="card card-form">
+            <h3>⚡ Long-Lived Permanent Token Generator (Token Refresh Tool)</h3>
+            <p class="text-muted" style="margin-bottom: 15px; font-size:0.85rem;">Convert a 2-hour short-lived token into a 60-day / Never-Expiring Long-Lived Token to prevent Facebook token expiration errors.</p>
+            <form id="tokenExchangeForm" onsubmit="exchangeFBToken(event)">
+                <div class="form-group">
+                    <label>Short-Lived Page Access Token</label>
+                    <input type="text" id="exShortToken" placeholder="Paste short-lived token from Graph Explorer" required>
+                </div>
+                <div class="form-group">
+                    <label>FB App ID</label>
+                    <input type="text" id="exAppId" placeholder="App ID from developers.facebook.com" required>
+                </div>
+                <div class="form-group">
+                    <label>FB App Secret</label>
+                    <input type="password" id="exAppSecret" placeholder="App Secret" required>
+                </div>
+                <button type="submit" class="btn btn-primary">🔄 Convert to Long-Lived Token</button>
+            </form>
+            <div id="exchangeResult" style="margin-top: 15px;"></div>
+        </div>
+
         <div class="card">
             <h3>Connected Pages</h3>
             <div id="fbList">
@@ -165,14 +192,11 @@
             </div>
         </div>
         <div class="card card-guide">
-            <h3>❓ Facebook Access Token Kaise Prapt Karein?</h3>
+            <h3>❓ Anti-Ban & Token Safety Tips (Hindi Guide)</h3>
             <ol>
-                <li><a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a> par jayein aur Login karein.</li>
-                <li>Ek new <strong>App</strong> create karein (Type: Business).</li>
-                <li><strong>Tools → Graph API Explorer</strong> open karein.</li>
-                <li>Dropdown se apna <strong>Facebook Page select</strong> karein.</li>
-                <li>Permissions add karein: <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code></li>
-                <li><strong>Generate Access Token</strong> par click karke token yahan paste karein!</li>
+                <li><strong>Short-lived Token vs Permanent Token</strong>: Graph Explorer ka token 1-2 ghante me expire ho jata hai. Upar diye <strong>Long-Lived Token Generator</strong> se token convert karein.</li>
+                <li><strong>Backup Token Feature</strong>: Agar Facebook ek profile ka token temporarily restrict/delete kar de, to secondary backup token automatically post upload sambhal lega.</li>
+                <li><strong>Permissions</strong>: Required Permissions: <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code></li>
             </ol>
         </div>
     </section>
