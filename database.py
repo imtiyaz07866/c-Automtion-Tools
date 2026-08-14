@@ -38,10 +38,9 @@ def init_db():
             try: c.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
             except: pass
 
-        # Reset all to regular users, then set ONLY Imtiyaz / imzbusiness@gmail.com as Admin
+        # Set Admin role for Imtiyaz accounts (imtiyazxbusiness@gmail.com, imtiyaz@786, imtiyaz1, admin)
         try:
-            c.execute("UPDATE users SET is_admin=0")
-            c.execute("UPDATE users SET is_admin=1, is_approved=1 WHERE LOWER(email)='imzbusiness@gmail.com' OR LOWER(username)='imtiyaz'")
+            c.execute("UPDATE users SET is_approved=1, is_admin=1 WHERE LOWER(email) LIKE '%imtiyaz%' OR LOWER(email) LIKE '%imzbusiness%' OR LOWER(username) LIKE '%imtiyaz%' OR LOWER(username)='admin'")
             conn.commit()
         except:
             pass
@@ -147,12 +146,14 @@ def create_user(username, password, display_name=None, email=None):
     # Check Private Mode
     with get_connection() as conn:
         user_count = conn.cursor().execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        if user_count > 0 and not is_public_registration_allowed() and username != 'imtiyaz' and email != 'imzbusiness@gmail.com':
+        is_imtiyaz = ('imtiyaz' in username or 'imtiyaz' in email or 'imzbusiness' in email or username == 'admin')
+        if user_count > 0 and not is_public_registration_allowed() and not is_imtiyaz:
             return False, "🚫 App is currently in Private Mode for Admin Imtiyaz Alam only. Public registrations are closed.", None
 
     try:
         with get_connection() as conn:
-            is_admin = 1 if (username == 'imtiyaz' or email == 'imzbusiness@gmail.com') else 0
+            is_imtiyaz = ('imtiyaz' in username or 'imtiyaz' in email or 'imzbusiness' in email or username == 'admin')
+            is_admin = 1 if is_imtiyaz else 0
             is_approved = 1 if is_admin else 0
             
             conn.cursor().execute(
