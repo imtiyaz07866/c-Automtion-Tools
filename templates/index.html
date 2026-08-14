@@ -300,11 +300,11 @@
             </div>
         </div>
         <div class="card card-guide">
-            <h3>❓ Anti-Ban & Token Safety Tips (Hindi Guide)</h3>
+            <h3>❓ Token Safety & Backup Guide</h3>
             <ol>
-                <li><strong>Short-lived Token vs Permanent Token</strong>: Graph Explorer ka token 1-2 ghante me expire ho jata hai. Upar diye <strong>Long-Lived Token Generator</strong> se token convert karein.</li>
-                <li><strong>Backup Token Feature</strong>: Agar Facebook ek profile ka token temporarily restrict/delete kar de, to secondary backup token automatically post upload sambhal lega.</li>
-                <li><strong>Permissions</strong>: Required Permissions: <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code></li>
+                <li><strong>Short-lived Token vs Permanent Token</strong>: Graph Explorer tokens expire in 1-2 hours. Convert tokens using the <strong>Long-Lived Token Generator</strong> above for permanent non-expiring access.</li>
+                <li><strong>Backup Token Feature</strong>: If Facebook temporarily restricts a primary token, the secondary backup token will automatically handle video uploads seamlessly.</li>
+                <li><strong>Permissions Required</strong>: <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code></li>
             </ol>
         </div>
     </section>
@@ -343,8 +343,8 @@
     <!-- Settings Tab -->
     <section class="tab-content" id="tab-settings">
         <div class="page-header">
-            <h2>⚙️ Settings</h2>
-            <p class="text-muted">Configure auto-sync behavior</p>
+            <h2>⚙️ Settings & Admin Security</h2>
+            <p class="text-muted">Configure auto-sync behavior and access controls</p>
         </div>
         <div class="card card-form">
             <form id="settingsForm" onsubmit="saveSettings(event)">
@@ -376,8 +376,9 @@
                     </label>
                     <input type="password" id="settGeminiKey" placeholder="Paste AIZASy... key from Google AI Studio" style="font-family:monospace;">
                     <small class="text-muted" style="display:block; margin-top:4px;">
-                        🔑 Free API Key lein: <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent); text-decoration:underline;">aistudio.google.com/app/apikey</a> (100% Free - Auto rewrites YouTube titles into viral Facebook Reel captions with hashtags & prevents duplicate posts!).
+                        🔑 Get Free API Key: <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent); text-decoration:underline;">aistudio.google.com/app/apikey</a> (100% Free - Rewrites YouTube titles into viral Facebook Reel captions & prevents duplicate posts).
                     </small>
+                </div>
                 <div class="form-group" style="margin-top: 15px; padding-top:15px; border-top: 1px dashed rgba(255,255,255,0.1);">
                     <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                         <span>🔒 Private App Mode (Access Security Lock)</span>
@@ -387,7 +388,7 @@
                         </select>
                     </label>
                     <small class="text-muted" style="display:block; margin-top:4px;">
-                        Jab yeh <strong>PRIVATE MODE</strong> par set hoga, to aapke alawa koi bhi naya user account create ya Gmail 1-Click login nahi kar sakega!
+                        When set to <strong>PRIVATE MODE</strong>, public user registrations are blocked and the app remains strictly accessible for Imtiyaz Alam only.
                     </small>
                 </div>
                 <button type="submit" class="btn btn-primary" style="margin-top:15px;">💾 Save Security & Settings</button>

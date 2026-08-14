@@ -129,33 +129,34 @@ def verify_password(password, stored_hash):
 # ===== User Functions & Private App Mode =====
 def is_public_registration_allowed():
     with get_connection() as conn:
-        r = conn.cursor().execute("SELECT value FROM settings WHERE user_id=1 AND key='allow_public_registration'").fetchone()
+        r = conn.cursor().execute("SELECT value FROM settings WHERE key='allow_public_registration'").fetchone()
         return r['value'] == '1' if r else False  # Default PRIVATE MODE (False)
 
-def create_user(username, password, display_name=None):
+def create_user(username, password, display_name=None, email=None):
     username = username.strip().lower()
+    email = (email or "").strip().lower()
     if not username or not password:
-        return False, "Username aur Password dono zaroori hain.", None
+        return False, "Username and Password are required.", None
     if len(username) < 3:
-        return False, "Username kam se kam 3 characters ka hona chahiye.", None
+        return False, "Username must be at least 3 characters long.", None
     if len(password) < 4:
-        return False, "Password kam se kam 4 characters ka hona chahiye.", None
+        return False, "Password must be at least 4 characters long.", None
     
     # Check Private Mode
     with get_connection() as conn:
         user_count = conn.cursor().execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        if user_count > 0 and not is_public_registration_allowed() and 'admin' not in username and 'imtiyaz' not in username:
+        if user_count > 0 and not is_public_registration_allowed() and 'admin' not in username and 'imtiyaz' not in username and 'imzbusiness' not in email:
             return False, "🚫 App is currently in Private Mode for Admin Imtiyaz Alam only. Public registrations are closed.", None
 
     try:
         with get_connection() as conn:
             user_count = conn.cursor().execute("SELECT COUNT(*) FROM users").fetchone()[0]
-            is_admin = 1 if (user_count == 0 or 'admin' in username or 'imtiyaz' in username) else 0
+            is_admin = 1 if (user_count == 0 or 'admin' in username or 'imtiyaz' in username or 'imzbusiness' in email) else 0
             is_approved = 1 if is_admin else 0
             
             conn.cursor().execute(
-                "INSERT INTO users (username, password_hash, display_name, is_approved, is_admin) VALUES (?, ?, ?, ?, ?)",
-                (username, hash_password(password), display_name or username, is_approved, is_admin)
+                "INSERT INTO users (username, email, password_hash, display_name, is_approved, is_admin) VALUES (?, ?, ?, ?, ?, ?)",
+                (username, email or None, hash_password(password), display_name or username, is_approved, is_admin)
             )
             conn.commit()
             user = conn.cursor().execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
@@ -164,22 +165,24 @@ def create_user(username, password, display_name=None):
             
             if not is_approved:
                 return False, "🔒 Registration Successful! Account is pending approval by Admin Imtiyaz Alam.", None
-            return True, "Account approved! Ab login karein.", dict(user)
+            return True, "Account registered & approved! You can now log in.", dict(user)
     except sqlite3.IntegrityError:
-        return False, "Yeh username pehle se hai. Doosra try karein.", None
+        return False, "Username or Email is already registered. Please use another.", None
     except Exception as e:
         return False, str(e), None
 
-def login_user(username, password):
-    username = username.strip().lower()
+def login_user(login_input, password):
+    login_input = login_input.strip().lower()
     with get_connection() as conn:
-        user = conn.cursor().execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        user = conn.cursor().execute(
+            "SELECT * FROM users WHERE username=? OR email=?", (login_input, login_input)
+        ).fetchone()
         if not user:
-            return False, "Username galat hai.", None
+            return False, "Invalid email/username or password.", None
         if not verify_password(password, user['password_hash']):
-            return False, "Password galat hai.", None
+            return False, "Invalid email/username or password.", None
         if not user['is_approved'] and not user['is_admin']:
-            return False, "🔒 Access Pending! Aapka account Admin Imtiyaz Alam ki approval ke liye pending hai.", None
+            return False, "🔒 Access Pending! Your account is awaiting approval by Admin Imtiyaz Alam.", None
         return True, "Login successful!", dict(user)
 
 def get_or_create_google_user(email, google_id=None, name=None, picture=None):

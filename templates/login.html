@@ -403,7 +403,7 @@
         <div class="auth-card" id="authCard">
             <div style="text-align:center; margin-bottom:20px;">
                 <h2 style="font-size:1.35rem; font-weight:800; color:#fff;">Welcome to AutoPoster</h2>
-                <p style="color:var(--muted); font-size:0.85rem; margin-top:4px;">Log in or Register for Cloud Access</p>
+                <p style="color:var(--muted); font-size:0.85rem; margin-top:4px;">Log in or Register for Private Cloud Access</p>
             </div>
 
             <!-- Tab Switcher -->
@@ -415,41 +415,15 @@
             <!-- Message Box -->
             <div class="msg" id="msgBox"></div>
 
-            <!-- Gmail 1-Click Sign-In -->
-            <div class="google-auth-container" style="margin-bottom: 20px;">
-                <button type="button" class="google-btn" onclick="handleGoogleLoginPrompt()" style="
-                    width: 100%; padding: 12px;
-                    background: #ffffff; color: #202124;
-                    border: 1px solid #dadce0; border-radius: 8px;
-                    font-weight: 600; font-size: 0.92rem;
-                    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.15); transition: all 0.2s ease; font-family: inherit;
-                ">
-                    <svg width="20" height="20" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
-                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.15C3.26 21.3 7.31 24 12 24z"/>
-                        <path fill="#FBBC05" d="M5.28 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.39l3.99-3.15z"/>
-                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.99 3.15c.95-2.85 3.6-4.96 6.72-4.96z"/>
-                    </svg>
-                    <span>Gmail 1-Click Login</span>
-                </button>
-            </div>
-
-            <div style="display: flex; align-items: center; margin: 18px 0; color: var(--muted); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
-                <div style="flex:1; height:1px; background:var(--border);"></div>
-                <span style="padding: 0 10px;">OR USERNAME</span>
-                <div style="flex:1; height:1px; background:var(--border);"></div>
-            </div>
-
             <!-- Login Form -->
             <form class="auth-form active" id="loginForm" onsubmit="handleLogin(event)">
                 <div class="field">
-                    <label>Username</label>
-                    <input type="text" id="loginUser" placeholder="Apna username daalein" required autocomplete="username">
+                    <label>Email Address or Username</label>
+                    <input type="text" id="loginUser" placeholder="Enter your email or username" required autocomplete="username">
                 </div>
                 <div class="field">
                     <label>Password</label>
-                    <input type="password" id="loginPass" placeholder="Apna password daalein" required autocomplete="current-password">
+                    <input type="password" id="loginPass" placeholder="Enter your password" required autocomplete="current-password">
                 </div>
                 <button type="submit" class="submit-btn" id="loginBtn">🔐 Login to Account</button>
             </form>
@@ -457,22 +431,26 @@
             <!-- Register Form -->
             <form class="auth-form" id="registerForm" onsubmit="handleRegister(event)">
                 <div class="field">
-                    <label>Display Name</label>
-                    <input type="text" id="regName" placeholder="Aapka naam" autocomplete="name">
+                    <label>Full Name</label>
+                    <input type="text" id="regName" placeholder="Enter your full name" autocomplete="name">
+                </div>
+                <div class="field">
+                    <label>Email Address</label>
+                    <input type="email" id="regEmail" placeholder="Enter your email address" required autocomplete="email">
                 </div>
                 <div class="field">
                     <label>Username</label>
-                    <input type="text" id="regUser" placeholder="Username choose karein" required autocomplete="username">
+                    <input type="text" id="regUser" placeholder="Choose a username" required autocomplete="username">
                 </div>
                 <div class="field">
                     <label>Password</label>
-                    <input type="password" id="regPass" placeholder="Password set karein" required autocomplete="new-password">
+                    <input type="password" id="regPass" placeholder="Create a password" required autocomplete="new-password">
                 </div>
                 <button type="submit" class="submit-btn" id="regBtn">🚀 Register Account</button>
             </form>
 
             <div style="text-align:center; margin-top:20px; font-size:0.78rem; color:var(--muted);">
-                🔒 Admin Approval Security Managed by <strong style="color:var(--accent);">Imtiyaz Alam</strong>
+                🔒 Account Access Control Managed by Admin <strong style="color:var(--accent);">Imtiyaz Alam</strong>
             </div>
         </div>
     </section>
@@ -624,6 +602,7 @@
     async function handleRegister(e) {
         e.preventDefault();
         const n = document.getElementById('regName').value.trim();
+        const em = document.getElementById('regEmail').value.trim();
         const u = document.getElementById('regUser').value.trim();
         const p = document.getElementById('regPass').value.trim();
         const btn = document.getElementById('regBtn');
@@ -634,11 +613,11 @@
             const res = await fetch('/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ display_name: n, username: u, password: p })
+                body: JSON.stringify({ display_name: n, email: em, username: u, password: p })
             });
             const data = await res.json();
             if (data.success) {
-                showMsg(data.message || 'Registered!', false);
+                showMsg(data.message || 'Registration successful!', false);
                 switchTab('login');
             } else {
                 showMsg(data.message || 'Registration failed', true);
@@ -647,33 +626,6 @@
             showMsg('Connection error', true);
         } finally {
             btn.disabled = false; btn.textContent = '🚀 Register Account';
-        }
-    }
-
-    function handleGoogleLoginPrompt() {
-        const email = prompt("Gmail ID daalein 1-Click Login ke liye:");
-        if (email && email.includes('@')) {
-            mockGoogleLogin(email);
-        }
-    }
-
-    async function mockGoogleLogin(email) {
-        showMsg("⏳ Processing Google Sign-In...", false);
-        try {
-            const res = await fetch('/api/google-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email, name: email.split('@')[0] })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showMsg("Google Login successful! Redirecting...", false);
-                setTimeout(() => window.location.href = '/', 600);
-            } else {
-                showMsg(data.message || "Google Login failed", true);
-            }
-        } catch(e) {
-            showMsg("Google Login Connection error", true);
         }
     }
 </script>
