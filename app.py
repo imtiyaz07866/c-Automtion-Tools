@@ -8,9 +8,11 @@ import database as db
 import uploader_engine as engine
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
-app.secret_key = os.getenv("SECRET_KEY", "yt-fb-autoposter-default-secret-key-change-in-production")
+app.secret_key = os.getenv("SECRET_KEY", "yt-fb-autoposter-permanent-secret-key-imtiyaz-2026")
+app.config['SESSION_COOKIE_NAME'] = 'autoposter_session'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 
 engine.start_scheduler()
 
