@@ -321,13 +321,15 @@ def api_stats():
     fb = db.get_fb_credentials(uid)
     history = db.get_upload_history(uid, 500)
     interval = db.get_setting(uid, "check_interval_hours", "1")
+    active_progress = db.get_setting(uid, "active_progress", "")
     return jsonify({
         "active_channels": len([c for c in channels if c.get("is_active")]),
         "total_channels": len(channels),
         "fb_pages": len(fb),
         "total_uploads": len([h for h in history if h["status"] == "success"]),
         "failed_uploads": len([h for h in history if h["status"] == "failed"]),
-        "interval": interval
+        "interval": interval,
+        "active_progress": active_progress
     })
 
 # ===== History API =====

@@ -61,6 +61,17 @@ async function loadDashboard() {
     document.getElementById('statUploads').textContent = stats.total_uploads;
     document.getElementById('statInterval').textContent = stats.interval + 'h';
 
+    const banner = document.getElementById('liveProgressBanner');
+    const progText = document.getElementById('liveProgressText');
+    if (banner && progText) {
+        if (stats.active_progress && stats.active_progress.trim() !== '') {
+            progText.textContent = stats.active_progress;
+            banner.style.display = 'flex';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
     const history = await api('/api/history');
     const recent = history.filter(h => h.status === 'success').slice(0, 5);
     const el = document.getElementById('recentUploads');
@@ -550,6 +561,23 @@ function formatTime(t) {
         return t;
     }
 }
+
+// ===== Auto-refresh Live Progress (%) every 2s =====
+setInterval(async () => {
+    try {
+        const stats = await api('/api/stats');
+        const banner = document.getElementById('liveProgressBanner');
+        const progText = document.getElementById('liveProgressText');
+        if (banner && progText) {
+            if (stats.active_progress && stats.active_progress.trim() !== '') {
+                progText.textContent = stats.active_progress;
+                banner.style.display = 'flex';
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+    } catch(e) {}
+}, 2000);
 
 // ===== Auto-refresh Dashboard every 30s =====
 setInterval(() => {

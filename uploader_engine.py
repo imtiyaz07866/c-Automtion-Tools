@@ -37,7 +37,25 @@ def get_ffmpeg_path():
     except:
         return None
 
-def download_video(video_url, video_id, max_res="4k"):
+def make_progress_hook(user_id):
+    last_pct = [-1.0]
+    def hook(d):
+        if d.get('status') == 'downloading':
+            total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
+            downloaded = d.get('downloaded_bytes', 0)
+            if total > 0:
+                pct = round((downloaded / total) * 100, 1)
+                if abs(pct - last_pct[0]) >= 1.5:
+                    last_pct[0] = pct
+                    mb_down = round(downloaded / (1024 * 1024), 1)
+                    mb_tot = round(total / (1024 * 1024), 1)
+                    msg = f"⬇️ Downloading: {pct}% ({mb_down}MB / {mb_tot}MB)"
+                    db.set_setting(user_id, "active_progress", msg)
+        elif d.get('status') == 'finished':
+            db.set_setting(user_id, "active_progress", "⚙️ Merging 4K Ultra HD Streams...")
+    return hook
+
+def download_video(video_url, video_id, max_res="4k", user_id=None):
     out = os.path.join(TEMP_DIR, f"{video_id}.%(ext)s")
     ff_path = get_ffmpeg_path()
     
@@ -57,6 +75,10 @@ def download_video(video_url, video_id, max_res="4k"):
         'no_warnings': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     }
+    if user_id:
+        opts['progress_hooks'] = [make_progress_hook(user_id)]
+        db.set_setting(user_id, "active_progress", "⬇️ Downloading: 0.1%...")
+
     if ff_path:
         opts['ffmpeg_location'] = ff_path
         opts['merge_output_format'] = 'mp4'
@@ -72,7 +94,7 @@ def download_video(video_url, video_id, max_res="4k"):
             m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
             if m: return True, m[0], info.get('title',''), info.get('description','')
     except Exception as e:
-        # High Quality Fallback
+        # Ultra HD Fallback
         try:
             opts_fallback = {
                 'format': 'bestvideo+bestaudio/best',
@@ -80,6 +102,8 @@ def download_video(video_url, video_id, max_res="4k"):
                 'quiet': True,
                 'no_warnings': True,
             }
+            if user_id:
+                opts_fallback['progress_hooks'] = [make_progress_hook(user_id)]
             if ff_path:
                 opts_fallback['ffmpeg_location'] = ff_path
                 opts_fallback['merge_output_format'] = 'mp4'
@@ -97,7 +121,9 @@ def download_video(video_url, video_id, max_res="4k"):
 
     return False, "File not found", "", ""
 
-def upload_to_fb(file_path, title, desc, page_id, token):
+def upload_to_fb(file_path, title, desc, page_id, token, user_id=None):
+    if user_id:
+        db.set_setting(user_id, "active_progress", "⬆️ Uploading to Facebook: 15%...")
     endpoints = [
         f"https://graph-video.facebook.com/v19.0/{page_id}/videos",
         "https://graph-video.facebook.com/v19.0/me/videos",
@@ -107,12 +133,17 @@ def upload_to_fb(file_path, title, desc, page_id, token):
     payload = {'title': (title or "Video")[:255], 'description': f"{title}\n\n{(desc or '')[:400]}", 'access_token': token}
     
     last_error = "Unknown FB API Error"
-    for url in endpoints:
+    for idx, url in enumerate(endpoints):
         try:
+            if user_id:
+                pct = 25 * (idx + 1)
+                db.set_setting(user_id, "active_progress", f"⬆️ Uploading to Facebook: {pct}%...")
             with open(file_path, 'rb') as f:
                 r = requests.post(url, data=payload, files={'source': f}, timeout=600)
             j = r.json()
             if r.status_code == 200 and 'id' in j:
+                if user_id:
+                    db.set_setting(user_id, "active_progress", "✅ 100% Complete! Video Uploaded!")
                 return True, j['id'], None
             last_error = j.get('error', {}).get('message', r.text)
         except Exception as err:
@@ -142,15 +173,16 @@ def run_sync_for_user(user_id):
                     continue
                 if db.is_video_processed(user_id, vid['id'], fb['page_id']): continue
                 db.log_activity(user_id, "INFO", f"New video: '{vid['title']}' -> FB {fb['page_id']}")
-                ok, path, title, desc = download_video(vid['url'], vid['id'])
+                ok, path, title, desc = download_video(vid['url'], vid['id'], user_id=user_id)
                 if not ok:
                     db.record_upload(user_id, vid['id'], vid['title'], ch['channel_url'], fb['page_id'], None, 'failed', path)
                     db.log_activity(user_id, "ERROR", f"Download failed: {path}")
+                    db.set_setting(user_id, "active_progress", "")
                     continue
-                uok, pid, uerr = upload_to_fb(path, title or vid['title'], desc, fb['page_id'], fb['access_token'])
+                uok, pid, uerr = upload_to_fb(path, title or vid['title'], desc, fb['page_id'], fb['access_token'], user_id=user_id)
                 if not uok and fb.get('backup_token'):
                     db.log_activity(user_id, "WARNING", f"Primary token failed for FB Page {fb['page_id']}. Trying Backup Token...")
-                    uok, pid, uerr = upload_to_fb(path, title or vid['title'], desc, fb['page_id'], fb['backup_token'])
+                    uok, pid, uerr = upload_to_fb(path, title or vid['title'], desc, fb['page_id'], fb['backup_token'], user_id=user_id)
                     if uok:
                         db.log_activity(user_id, "INFO", f"Backup Token succeeded! Video ID: {pid}")
 
@@ -163,6 +195,7 @@ def run_sync_for_user(user_id):
                 try: os.remove(path)
                 except: pass
     db.log_activity(user_id, "INFO", f"Sync done. Posted: {total}")
+    db.set_setting(user_id, "active_progress", f"✅ Sync done. Posted {total} video(s)")
 
 import secrets
 
@@ -172,6 +205,7 @@ def run_manual_post_for_user(user_id, video_url, target_fb_pages="all", custom_t
     fb_creds = db.get_fb_credentials(user_id)
     if not fb_creds:
         db.log_activity(user_id, "WARNING", "No Facebook Page connected for manual upload.")
+        db.set_setting(user_id, "active_progress", "")
         return
         
     target_ids = [p.strip() for p in target_fb_pages.split(',')] if target_fb_pages != 'all' else None
@@ -186,12 +220,14 @@ def run_manual_post_for_user(user_id, video_url, target_fb_pages="all", custom_t
             db.log_activity(user_id, "INFO", f"Found latest video: '{vids[0]['title']}' ({actual_url})")
         else:
             db.log_activity(user_id, "ERROR", f"Could not find any videos in channel: {video_url}")
+            db.set_setting(user_id, "active_progress", "")
             return
             
     vid = "manual_" + secrets.token_hex(6)
-    ok, path, yt_title, yt_desc = download_video(actual_url, vid)
+    ok, path, yt_title, yt_desc = download_video(actual_url, vid, user_id=user_id)
     if not ok:
         db.log_activity(user_id, "ERROR", f"Manual video download failed: {path}")
+        db.set_setting(user_id, "active_progress", "")
         return
         
     final_title = (custom_title or yt_title or "Video Post").strip()
@@ -202,10 +238,10 @@ def run_manual_post_for_user(user_id, video_url, target_fb_pages="all", custom_t
         if target_ids and fb['page_id'] not in target_ids:
             continue
             
-        uok, pid, uerr = upload_to_fb(path, final_title, final_desc, fb['page_id'], fb['access_token'])
+        uok, pid, uerr = upload_to_fb(path, final_title, final_desc, fb['page_id'], fb['access_token'], user_id=user_id)
         if not uok and fb.get('backup_token'):
             db.log_activity(user_id, "WARNING", f"Primary token failed on manual upload. Retrying Backup Token on Page {fb['page_id']}...")
-            uok, pid, uerr = upload_to_fb(path, final_title, final_desc, fb['page_id'], fb['backup_token'])
+            uok, pid, uerr = upload_to_fb(path, final_title, final_desc, fb['page_id'], fb['backup_token'], user_id=user_id)
             
         db.record_upload(user_id, vid, final_title, video_url, fb['page_id'], pid, 'success' if uok else 'failed', uerr)
         if uok:
@@ -217,6 +253,7 @@ def run_manual_post_for_user(user_id, video_url, target_fb_pages="all", custom_t
     try: os.remove(path)
     except: pass
     db.log_activity(user_id, "INFO", f"Manual post finished. Uploaded to {posted_count} Facebook page(s).")
+    db.set_setting(user_id, "active_progress", f"✅ Post uploaded to {posted_count} page(s)!")
 
 def run_sync_all_users():
     """Scheduled job: run sync for ALL users who have active channels."""

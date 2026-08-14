@@ -61,15 +61,14 @@
     </div>
 </aside>
 
-<!-- Main Content -->
-<main class="main-content">
-
-    <!-- Mobile Header -->
-    <header class="mobile-header">
-        <button class="hamburger" onclick="toggleSidebar()">☰</button>
-        <h2>AutoPoster</h2>
-        <button class="btn-logout" onclick="logout()" style="margin-left:auto" title="Logout">🚪</button>
-    </header>
+    <!-- Live Progress (%) Bar Banner -->
+    <div id="liveProgressBanner" style="display:none; margin: 15px 25px 0 25px; padding: 14px 20px; background: linear-gradient(135deg, rgba(79,70,229,0.25), rgba(16,185,129,0.2)); border: 1px solid var(--accent); border-radius: 12px; font-weight:600; font-size:0.95rem; color:#fff; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; box-shadow: 0 4px 15px rgba(79,70,229,0.3);">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span class="pulse-dot" style="width:12px; height:12px; background:var(--green);"></span>
+            <span id="liveProgressText">⬇️ Downloading: 0%</span>
+        </div>
+        <span class="badge badge-success" style="font-size:0.8rem; padding:4px 10px;">LIVE PROGRESS</span>
+    </div>
 
     <!-- Dashboard Tab -->
     <section class="tab-content active" id="tab-dashboard">
