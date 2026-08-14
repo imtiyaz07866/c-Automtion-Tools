@@ -302,6 +302,33 @@ async function addFB(e) {
     }
 }
 
+async function verifyFBTokenInput() {
+    const access_token = document.getElementById('fbToken').value.trim();
+    const resultDiv = document.getElementById('tokenVerifyResult');
+    if (!access_token) return showToast('Please paste a Facebook Access Token to test!', 'error');
+    
+    resultDiv.innerHTML = '<p style="color:var(--orange); font-size:0.85rem;">🔍 Testing token permissions with Facebook Graph API...</p>';
+    const res = await api('/api/facebook/verify-token', 'POST', { access_token });
+    
+    if (res.success) {
+        resultDiv.innerHTML = `<div style="padding:10px 14px; background:rgba(52,211,153,0.1); border:1px solid var(--green); border-radius:8px; font-size:0.85rem; color:var(--green);">
+            ${esc(res.message)}
+        </div>`;
+        if (res.page_id && !document.getElementById('fbPageId').value) {
+            document.getElementById('fbPageId').value = res.page_id;
+        }
+        if (res.page_name && !document.getElementById('fbName').value) {
+            document.getElementById('fbName').value = res.page_name;
+        }
+        showToast('Token Verified Successfully!');
+    } else {
+        resultDiv.innerHTML = `<div style="padding:10px 14px; background:rgba(248,113,113,0.1); border:1px solid var(--red); border-radius:8px; font-size:0.85rem; color:var(--red);">
+            ❌ ${esc(res.message)}
+        </div>`;
+        showToast('Token Verification Warning', 'error');
+    }
+}
+
 async function exchangeFBToken(e) {
     e.preventDefault();
     const short_lived_token = document.getElementById('exShortToken').value.trim();

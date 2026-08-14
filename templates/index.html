@@ -194,7 +194,11 @@
                     <label>Page Name (Optional)</label>
                     <input type="text" id="fbName" placeholder="e.g. My Official Page">
                 </div>
-                <button type="submit" class="btn btn-primary">🔐 Save Facebook Credentials</button>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+                    <button type="submit" class="btn btn-primary">🔐 Save Facebook Credentials</button>
+                    <button type="button" class="btn btn-toggle active" onclick="verifyFBTokenInput()">🔍 Test Token Permissions</button>
+                </div>
+                <div id="tokenVerifyResult" style="margin-top: 12px;"></div>
             </form>
         </div>
 

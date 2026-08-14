@@ -191,6 +191,51 @@ def api_exchange_fb_token():
     except Exception as e:
         return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
 
+@app.route("/api/facebook/verify-token", methods=["POST"])
+@login_required
+def api_verify_fb_token():
+    d = request.json or {}
+    token = d.get("access_token", "").strip()
+    if not token:
+        return jsonify({"success": False, "message": "Access token is required!"}), 400
+        
+    try:
+        import requests
+        url = "https://graph.facebook.com/v19.0/me"
+        params = {"fields": "id,name,permissions", "access_token": token}
+        r = requests.get(url, params=params, timeout=10)
+        j = r.json()
+        
+        if r.status_code == 200 and "id" in j:
+            name = j.get("name", "Facebook Page")
+            pid = j.get("id")
+            
+            perms_data = j.get("permissions", {}).get("data", [])
+            granted = [p["permission"] for p in perms_data if p.get("status") == "granted"]
+            
+            req_perms = ["pages_manage_posts", "pages_read_engagement"]
+            missing = [p for p in req_perms if p not in granted]
+            
+            if missing and perms_data:
+                return jsonify({
+                    "success": False,
+                    "message": f"Token connected to '{name}' ({pid}), BUT missing permissions: {', '.join(missing)}. Please add 'pages_manage_posts' permission in Graph Explorer!",
+                    "page_id": pid,
+                    "page_name": name
+                })
+                
+            return jsonify({
+                "success": True,
+                "message": f"✅ Token Valid! Connected to '{name}' (ID: {pid}). Ready for auto-posting!",
+                "page_id": pid,
+                "page_name": name
+            })
+        else:
+            err = j.get("error", {}).get("message", r.text)
+            return jsonify({"success": False, "message": f"Token Invalid: {err}"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
 @app.route("/api/facebook/<pid>", methods=["PUT"])
 @login_required
 def api_update_fb(pid):
