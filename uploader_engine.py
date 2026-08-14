@@ -13,7 +13,15 @@ def cleanup():
         except: pass
 
 def fetch_latest_videos(channel_url, max_results=3):
-    opts = {'extract_flat': 'in_playlist', 'skip_download': True, 'quiet': True, 'no_warnings': True, 'playlistend': max_results}
+    opts = {
+        'extract_flat': 'in_playlist',
+        'skip_download': True,
+        'quiet': True,
+        'no_warnings': True,
+        'playlistend': max_results,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web', 'mweb']}}
+    }
     videos = []
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -75,7 +83,8 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
         'outtmpl': out,
         'quiet': True,
         'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web', 'mweb']}}
     }
     if user_id:
         opts['progress_hooks'] = [make_progress_hook(user_id)]
@@ -96,19 +105,20 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
             if m: return True, m[0], info.get('title',''), info.get('description','')
     except Exception as e:
-        # Ultra HD Fallback
+        opts_fallback = {
+            'format': 'bestvideo+bestaudio/best',
+            'outtmpl': out,
+            'quiet': True,
+            'no_warnings': True,
+            'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+            'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'mweb']}}
+        }
+        if user_id:
+            opts_fallback['progress_hooks'] = [make_progress_hook(user_id)]
+        if ff_path:
+            opts_fallback['ffmpeg_location'] = ff_path
+            opts_fallback['merge_output_format'] = 'mp4'
         try:
-            opts_fallback = {
-                'format': 'bestvideo+bestaudio/best',
-                'outtmpl': out,
-                'quiet': True,
-                'no_warnings': True,
-            }
-            if user_id:
-                opts_fallback['progress_hooks'] = [make_progress_hook(user_id)]
-            if ff_path:
-                opts_fallback['ffmpeg_location'] = ff_path
-                opts_fallback['merge_output_format'] = 'mp4'
             with yt_dlp.YoutubeDL(opts_fallback) as ydl:
                 info = ydl.extract_info(video_url, download=True)
                 fn = ydl.prepare_filename(info)
