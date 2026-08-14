@@ -23,6 +23,8 @@ def login_required(f):
                 return jsonify({"error": "Not logged in", "redirect": "/login"}), 401
             return redirect(url_for('login_page'))
         return f(*args, **kwargs)
+    return decorated
+
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
