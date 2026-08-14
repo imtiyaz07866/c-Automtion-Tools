@@ -37,12 +37,21 @@ def get_ffmpeg_path():
     except:
         return None
 
-def download_video(video_url, video_id):
+def download_video(video_url, video_id, max_res="4k"):
     out = os.path.join(TEMP_DIR, f"{video_id}.%(ext)s")
     ff_path = get_ffmpeg_path()
     
+    # Highest Ultra HD 4K / 2K / 1080p 60fps Format Selection
+    if max_res == "1080p":
+        fmt = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best'
+    elif max_res == "720p":
+        fmt = 'bestvideo[height<=720]+bestaudio/bestvideo+bestaudio/best'
+    else:
+        # Default: 4K Ultra HD (2160p) Max Resolution & High Bitrate
+        fmt = 'bestvideo[height<=2160]+bestaudio/bestvideo+bestaudio/best'
+
     opts = {
-        'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
+        'format': fmt,
         'outtmpl': out,
         'quiet': True,
         'no_warnings': True,
@@ -52,6 +61,10 @@ def download_video(video_url, video_id):
     if ff_path:
         opts['ffmpeg_location'] = ff_path
         opts['merge_output_format'] = 'mp4'
+        opts['postprocessors'] = [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }]
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -64,16 +77,17 @@ def download_video(video_url, video_id):
             m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
             if m: return True, m[0], info.get('title',''), info.get('description','')
     except Exception as e:
-        # Fallback to single stream format requiring no ffmpeg merging
+        # High Quality Fallback
         try:
             opts_fallback = {
-                'format': 'best',
+                'format': 'bestvideo+bestaudio/best',
                 'outtmpl': out,
                 'quiet': True,
                 'no_warnings': True,
             }
             if ff_path:
                 opts_fallback['ffmpeg_location'] = ff_path
+                opts_fallback['merge_output_format'] = 'mp4'
             with yt_dlp.YoutubeDL(opts_fallback) as ydl:
                 info = ydl.extract_info(video_url, download=True)
                 fn = ydl.prepare_filename(info)
