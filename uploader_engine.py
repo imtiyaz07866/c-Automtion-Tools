@@ -89,27 +89,27 @@ def download_video(video_url, video_id):
     return False, "File not found", "", ""
 
 def upload_to_fb(file_path, title, desc, page_id, token):
-    url = f"https://graph-video.facebook.com/v19.0/{page_id}/videos"
+    endpoints = [
+        f"https://graph-video.facebook.com/v19.0/{page_id}/videos",
+        "https://graph-video.facebook.com/v19.0/me/videos",
+        f"https://graph.facebook.com/v19.0/{page_id}/videos",
+        "https://graph.facebook.com/v19.0/me/videos"
+    ]
     payload = {'title': (title or "Video")[:255], 'description': f"{title}\n\n{(desc or '')[:400]}", 'access_token': token}
-    try:
-        with open(file_path, 'rb') as f:
-            r = requests.post(url, data=payload, files={'source': f}, timeout=600)
-        j = r.json()
-        if r.status_code == 200 and 'id' in j:
-            return True, j['id'], None
+    
+    last_error = "Unknown FB API Error"
+    for url in endpoints:
+        try:
+            with open(file_path, 'rb') as f:
+                r = requests.post(url, data=payload, files={'source': f}, timeout=600)
+            j = r.json()
+            if r.status_code == 200 and 'id' in j:
+                return True, j['id'], None
+            last_error = j.get('error', {}).get('message', r.text)
+        except Exception as err:
+            last_error = str(err)
             
-        # Smart Fallback: Retry with /me/videos endpoint if Facebook returns #100 Global ID restriction
-        url_me = "https://graph-video.facebook.com/v19.0/me/videos"
-        with open(file_path, 'rb') as f:
-            r2 = requests.post(url_me, data=payload, files={'source': f}, timeout=600)
-        j2 = r2.json()
-        if r2.status_code == 200 and 'id' in j2:
-            return True, j2['id'], None
-            
-        err = j2.get('error', {}).get('message', j.get('error', {}).get('message', r.text))
-        return False, None, err
-    except Exception as e:
-        return False, None, str(e)
+    return False, None, last_error
 
 def run_sync_for_user(user_id):
     """Run sync for a specific user."""
