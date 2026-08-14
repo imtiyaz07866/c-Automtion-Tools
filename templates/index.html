@@ -51,10 +51,10 @@
             <span class="pulse-dot"></span> Online & Monitoring
         </div>
         <div class="user-bar">
-            <div class="user-avatar">{{ user.display_name[0] | upper if user else 'U' }}</div>
+            <div class="user-avatar">{{ (user.display_name or user.username or 'Imtiyaz')[0] | upper if user else 'I' }}</div>
             <div class="user-info">
-                <span class="user-name">{{ user.display_name if user else 'User' }}</span>
-                <span class="user-role">@{{ user.username if user else '' }}</span>
+                <span class="user-name">{{ (user.display_name or user.username) if user else 'Imtiyaz Alam' }}</span>
+                <span class="user-role">@{{ (user.username or user.email or 'imtiyaz') if user else 'imtiyaz' }}</span>
             </div>
         </div>
         <!-- Standalone Logout Button -->

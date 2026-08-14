@@ -187,6 +187,13 @@ def login_user(login_input, password):
             return False, "🔒 Access Pending! Your account is awaiting approval by Admin Imtiyaz Alam.", None
         return True, "Login successful!", dict(user)
 
+def get_user_by_id(user_id):
+    if not user_id:
+        return None
+    with get_connection() as conn:
+        user = conn.cursor().execute("SELECT id, username, display_name, email, avatar_url, is_approved, is_admin, created_at FROM users WHERE id=?", (user_id,)).fetchone()
+        return dict(user) if user else None
+
 def get_or_create_google_user(email, google_id=None, name=None, picture=None):
     email = email.strip().lower()
     name = name or email.split('@')[0]
