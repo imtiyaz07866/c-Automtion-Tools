@@ -16,7 +16,7 @@ def init_db():
     with get_connection() as conn:
         c = conn.cursor()
 
-        # Users table (supports Username/Password & Google Sign-In)
+        # Users table (supports Username/Password & Google Sign-In with Admin Approval)
         c.execute("""CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -25,13 +25,24 @@ def init_db():
             email TEXT UNIQUE,
             google_id TEXT UNIQUE,
             avatar_url TEXT,
+            is_approved INTEGER DEFAULT 0,
+            is_admin INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""")
         
         # Migrations for existing DB
-        for col, col_type in [("email", "TEXT"), ("google_id", "TEXT"), ("avatar_url", "TEXT")]:
+        for col, col_type in [
+            ("email", "TEXT"), ("google_id", "TEXT"), ("avatar_url", "TEXT"),
+            ("is_approved", "INTEGER DEFAULT 0"), ("is_admin", "INTEGER DEFAULT 0")
+        ]:
             try: c.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
             except: pass
+
+        # Auto-approve admin & first users
+        try:
+            c.execute("UPDATE users SET is_approved=1, is_admin=1 WHERE id=1 OR email LIKE '%imzbusiness%' OR username LIKE '%admin%' OR username LIKE '%imtiyaz%'")
+        except:
+            pass
 
         # Channels table (per-user) with target FB pages mapping
         c.execute("""CREATE TABLE IF NOT EXISTS channels (
@@ -126,16 +137,23 @@ def create_user(username, password, display_name=None):
         return False, "Password kam se kam 4 characters ka hona chahiye.", None
     try:
         with get_connection() as conn:
+            # Auto-approve admin or first user
+            user_count = conn.cursor().execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            is_admin = 1 if (user_count == 0 or 'admin' in username or 'imtiyaz' in username) else 0
+            is_approved = 1 if is_admin else 0
+            
             conn.cursor().execute(
-                "INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
-                (username, hash_password(password), display_name or username)
+                "INSERT INTO users (username, password_hash, display_name, is_approved, is_admin) VALUES (?, ?, ?, ?, ?)",
+                (username, hash_password(password), display_name or username, is_approved, is_admin)
             )
             conn.commit()
             user = conn.cursor().execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
-            # Set default settings for new user
             set_setting(user['id'], "check_interval_hours", "1")
             set_setting(user['id'], "max_videos_per_sync", "3")
-            return True, "Account ban gaya! Ab login karein.", dict(user)
+            
+            if not is_approved:
+                return False, "🔒 Registration Successful! Account is pending approval by Admin Imtiyaz Alam.", None
+            return True, "Account approved! Ab login karein.", dict(user)
     except sqlite3.IntegrityError:
         return False, "Yeh username pehle se hai. Doosra try karein.", None
     except Exception as e:
@@ -149,6 +167,8 @@ def login_user(username, password):
             return False, "Username galat hai.", None
         if not verify_password(password, user['password_hash']):
             return False, "Password galat hai.", None
+        if not user['is_approved'] and not user['is_admin']:
+            return False, "🔒 Access Pending! Aapka account Admin Imtiyaz Alam ki approval ke liye pending hai.", None
         return True, "Login successful!", dict(user)
 
 def get_or_create_google_user(email, google_id=None, name=None, picture=None):
@@ -168,18 +188,42 @@ def get_or_create_google_user(email, google_id=None, name=None, picture=None):
             )
             conn.commit()
             updated = cursor.execute("SELECT * FROM users WHERE id=?", (user['id'],)).fetchone()
+            if not updated['is_approved'] and not updated['is_admin']:
+                return False, "🔒 Access Pending! Aapka account Admin Imtiyaz Alam ki approval ke liye pending hai.", None
             return True, "Google Sign-In successful!", dict(updated)
             
+        user_count = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        is_admin = 1 if (user_count == 0 or 'imzbusiness' in email or 'imtiyaz' in email) else 0
+        is_approved = 1 if is_admin else 0
+        
         dummy_hash = hash_password(secrets.token_hex(16))
         cursor.execute(
-            "INSERT INTO users (username, password_hash, display_name, email, google_id, avatar_url) VALUES (?, ?, ?, ?, ?, ?)",
-            (email, dummy_hash, name, email, google_id, picture)
+            "INSERT INTO users (username, password_hash, display_name, email, google_id, avatar_url, is_approved, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (email, dummy_hash, name, email, google_id, picture, is_approved, is_admin)
         )
         conn.commit()
         new_user = cursor.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         set_setting(new_user['id'], "check_interval_hours", "1")
         set_setting(new_user['id'], "max_videos_per_sync", "3")
+        
+        if not is_approved:
+            return False, "🔒 Registration Successful! Account is pending approval by Admin Imtiyaz Alam.", None
+            
         return True, "Google account created & logged in!", dict(new_user)
+
+def approve_user(user_id):
+    with get_connection() as conn:
+        conn.cursor().execute("UPDATE users SET is_approved=1 WHERE id=?", (user_id,))
+        conn.commit()
+
+def reject_user(user_id):
+    with get_connection() as conn:
+        conn.cursor().execute("DELETE FROM users WHERE id=? AND is_admin!=1", (user_id,))
+        conn.commit()
+
+def get_all_users():
+    with get_connection() as conn:
+        return [dict(r) for r in conn.cursor().execute("SELECT id, username, display_name, email, avatar_url, is_approved, is_admin, created_at FROM users ORDER BY id ASC").fetchall()]
 
 def get_user_by_id(user_id):
     with get_connection() as conn:

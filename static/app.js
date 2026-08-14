@@ -512,7 +512,7 @@ async function clearLogs() {
     loadLogs();
 }
 
-// ===== Settings =====
+// ===== Settings & Admin Panel =====
 async function loadSettings() {
     const s = await api('/api/settings');
     document.getElementById('settInterval').value = s.check_interval_hours;
@@ -520,6 +520,7 @@ async function loadSettings() {
     if (document.getElementById('settGeminiKey')) {
         document.getElementById('settGeminiKey').value = s.gemini_api_key || '';
     }
+    loadAdminUsers();
 }
 
 async function saveSettings(e) {
@@ -530,6 +531,72 @@ async function saveSettings(e) {
     const res = await api('/api/settings', 'POST', { check_interval_hours, max_videos_per_sync, gemini_api_key });
     showToast(res.message, res.success ? 'success' : 'error');
     loadDashboard();
+}
+
+async function loadAdminUsers() {
+    try {
+        const users = await api('/api/admin/users');
+        const card = document.getElementById('adminUsersCard');
+        const el = document.getElementById('adminUsersList');
+        if (!card || !el) return;
+        
+        card.style.display = 'block';
+        if (!users || users.length === 0) {
+            el.innerHTML = '<p class="text-muted text-center">No registered users found.</p>';
+            return;
+        }
+        
+        let html = `<table><thead><tr>
+            <th>ID</th><th>User</th><th>Email</th><th>Created</th><th>Status</th><th>Admin Action</th>
+        </tr></thead><tbody>`;
+        
+        users.forEach(u => {
+            const isApproved = u.is_approved || u.is_admin;
+            const statusBadge = u.is_admin
+                ? '<span class="badge badge-success">SUPER ADMIN</span>'
+                : isApproved
+                ? '<span class="badge badge-success">APPROVED</span>'
+                : '<span class="badge badge-warn">PENDING APPROVAL</span>';
+                
+            let actionBtn = '';
+            if (!u.is_admin) {
+                if (isApproved) {
+                    actionBtn = `<button class="btn btn-danger-sm" onclick="rejectUser(${u.id})">Reject / Delete</button>`;
+                } else {
+                    actionBtn = `<button class="btn btn-primary" style="padding:6px 14px; font-size:0.82rem;" onclick="approveUser(${u.id})">✅ APPROVE ACCESS</button>`;
+                }
+            } else {
+                actionBtn = `<span style="font-size:0.8rem; color:var(--text-muted); font-weight:700;">Owner (Imtiyaz)</span>`;
+            }
+            
+            html += `<tr>
+                <td>#${u.id}</td>
+                <td><strong>${esc(u.display_name || u.username)}</strong><br><small class="text-muted">@${esc(u.username)}</small></td>
+                <td>${esc(u.email || '-')}</td>
+                <td>${formatTime(u.created_at)}</td>
+                <td>${statusBadge}</td>
+                <td>${actionBtn}</td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table>';
+        el.innerHTML = html;
+    } catch(e) {
+        console.log('Not admin or failed to load users:', e);
+    }
+}
+
+async function approveUser(uid) {
+    const res = await api('/api/admin/approve-user', 'POST', { user_id: uid });
+    showToast(res.message, res.success ? 'success' : 'error');
+    loadAdminUsers();
+}
+
+async function rejectUser(uid) {
+    if (!confirm('Reject & Delete this user account?')) return;
+    const res = await api('/api/admin/reject-user', 'POST', { user_id: uid });
+    showToast(res.message, res.success ? 'success' : 'error');
+    loadAdminUsers();
 }
 
 // ===== Manual Sync =====

@@ -364,8 +364,33 @@ def api_get_settings():
     return jsonify({
         "check_interval_hours": db.get_setting(uid, "check_interval_hours", "1"),
         "max_videos_per_sync": db.get_setting(uid, "max_videos_per_sync", "3"),
-        "gemini_api_key": db.get_setting(uid, "gemini_api_key", "")
+        "gemini_api_key": db.get_setting(uid, "gemini_api_key", ""),
+        "user_info": session.get("user", {})
     })
+
+# ===== Admin User Approval API =====
+@app.route("/api/admin/users", methods=["GET"])
+@login_required
+def api_admin_get_users():
+    return jsonify(db.get_all_users())
+
+@app.route("/api/admin/approve-user", methods=["POST"])
+@login_required
+def api_admin_approve_user():
+    target_id = request.json.get("user_id")
+    if target_id:
+        db.approve_user(target_id)
+        return jsonify({"success": True, "message": "User Approved Successfully!"})
+    return jsonify({"success": False, "message": "Invalid user ID"}), 400
+
+@app.route("/api/admin/reject-user", methods=["POST"])
+@login_required
+def api_admin_reject_user():
+    target_id = request.json.get("user_id")
+    if target_id:
+        db.reject_user(target_id)
+        return jsonify({"success": True, "message": "User Removed!"})
+    return jsonify({"success": False, "message": "Invalid user ID"}), 400
 
 @app.route("/api/settings", methods=["POST"])
 @login_required

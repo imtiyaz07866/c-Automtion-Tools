@@ -11,13 +11,13 @@
 </head>
 <body>
 
-<!-- Sidebar Navigation -->
+<!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
         <div class="brand-icon">▶</div>
         <div>
             <h1>AutoPoster</h1>
-            <span class="brand-tag">YT → FB Cloud</span>
+            <span class="brand-tag" style="display:block; color:var(--accent); font-weight:700;">Web by Imtiyaz Alam</span>
         </div>
     </div>
     <nav class="sidebar-nav">
@@ -40,7 +40,7 @@
             <span class="nav-icon">📟</span> System Logs
         </a>
         <a href="#" class="nav-item" data-tab="settings">
-            <span class="nav-icon">⚙️</span> Settings
+            <span class="nav-icon">⚙️</span> Settings & Admin
         </a>
     </nav>
     <div class="sidebar-footer">
@@ -56,8 +56,11 @@
                 <span class="user-name">{{ user.display_name if user else 'User' }}</span>
                 <span class="user-role">@{{ user.username if user else '' }}</span>
             </div>
-            <button class="btn-logout" onclick="logout()" title="Logout">🚪</button>
         </div>
+        <!-- Standalone Logout Button -->
+        <button onclick="logout()" class="btn" style="width:100%; margin-top:10px; background:rgba(239, 68, 68, 0.15); color:var(--red); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius-sm); padding:10px; font-size:0.9rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s ease;">
+            🚪 Logout Account
+        </button>
     </div>
 </aside>
 
@@ -378,6 +381,21 @@
                 </div>
                 <button type="submit" class="btn btn-primary">💾 Save Settings</button>
             </form>
+        </div>
+
+        <!-- Admin User Access Approval Card -->
+        <div class="card" id="adminUsersCard" style="border: 1px solid var(--accent); margin-top: 20px;">
+            <h3>🛡️ Admin Approval Control Panel (Access Security)</h3>
+            <p class="text-muted" style="margin-bottom:15px; font-size:0.85rem;">Only users approved by Admin (Imtiyaz Alam) can log in and use the app!</p>
+            <div id="adminUsersList" class="table-wrap">
+                <p class="text-muted text-center">Loading users...</p>
+            </div>
+        </div>
+
+        <!-- Developer Credit Card -->
+        <div class="card text-center" style="background: rgba(99,102,241,0.05); border: 1px dashed rgba(99,102,241,0.3); margin-top:20px;">
+            <p style="font-weight:700; color:#fff; font-size:1rem;">⚡ AutoPoster SaaS Automation System</p>
+            <p class="text-muted" style="font-size:0.88rem; margin-top:4px;">Web Application Developed & Maintained by <strong style="color:var(--accent);">Imtiyaz Alam</strong></p>
         </div>
     </section>
 
