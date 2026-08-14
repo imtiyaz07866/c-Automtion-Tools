@@ -41,30 +41,25 @@ def download_video(video_url, video_id, max_res="4k"):
     out = os.path.join(TEMP_DIR, f"{video_id}.%(ext)s")
     ff_path = get_ffmpeg_path()
     
-    # Highest Ultra HD 4K / 2K / 1080p 60fps Format Selection
+    # Absolute Best Ultra HD 4K (2160p / 1440p / 1080p 60fps) Stream Selection
     if max_res == "1080p":
         fmt = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best'
     elif max_res == "720p":
         fmt = 'bestvideo[height<=720]+bestaudio/bestvideo+bestaudio/best'
     else:
-        # Default: 4K Ultra HD (2160p) Max Resolution & High Bitrate
-        fmt = 'bestvideo[height<=2160]+bestaudio/bestvideo+bestaudio/best'
+        # Default: True 4K Ultra HD (2160p) Highest Quality Stream
+        fmt = 'bestvideo+bestaudio/best'
 
     opts = {
         'format': fmt,
         'outtmpl': out,
         'quiet': True,
         'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'extractor_args': {'youtube': {'player_client': ['android', 'web']}}
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     }
     if ff_path:
         opts['ffmpeg_location'] = ff_path
         opts['merge_output_format'] = 'mp4'
-        opts['postprocessors'] = [{
-            'key': 'FFmpegVideoConvertor',
-            'preferedformat': 'mp4',
-        }]
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
