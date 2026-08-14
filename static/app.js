@@ -198,6 +198,16 @@ async function loadFB() {
         return;
     }
 
+    // Populate Manual Post FB Target dropdown
+    const manTargetSelect = document.getElementById('manTargetFb');
+    if (manTargetSelect) {
+        let optHtml = '<option value="all">🌐 All Connected Facebook Pages</option>';
+        list.forEach(fb => {
+            optHtml += `<option value="${esc(fb.page_id)}">📘 ${esc(fb.page_name)} (${esc(fb.page_id)})</option>`;
+        });
+        manTargetSelect.innerHTML = optHtml;
+    }
+
     let html = '';
     list.forEach(fb => {
         const hasBackup = fb.backup_token ? '<span class="badge badge-success">🛡️ Backup Token Active</span>' : '<span class="badge badge-warn">Primary Only</span>';
@@ -213,6 +223,33 @@ async function loadFB() {
         </div>`;
     });
     el.innerHTML = html;
+}
+
+// ===== Manual Post Handler =====
+async function handleManualPost(e) {
+    e.preventDefault();
+    const video_url = document.getElementById('manVideoUrl').value.trim();
+    const target_fb_pages = document.getElementById('manTargetFb') ? document.getElementById('manTargetFb').value : 'all';
+    const custom_title = document.getElementById('manCustomTitle').value.trim();
+    const custom_desc = document.getElementById('manCustomDesc').value.trim();
+
+    if (!video_url) return showToast('Video URL is required!', 'error');
+    
+    const btn = document.getElementById('btnManualPost');
+    btn.disabled = true;
+    btn.textContent = '⏳ Uploading in background...';
+    
+    const res = await api('/api/manual-post', 'POST', { video_url, target_fb_pages, custom_title, custom_desc });
+    showToast(res.message, res.success ? 'success' : 'error');
+    
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = '⚡ Upload Video Now';
+        document.getElementById('manualPostForm').reset();
+        loadDashboard();
+        loadHistory();
+        loadLogs();
+    }, 2500);
 }
 
 function openEditFB(pageId) {

@@ -264,6 +264,28 @@ def api_save_settings():
     db.set_setting(uid, "max_videos_per_sync", d.get("max_videos_per_sync", "3"))
     return jsonify({"success": True, "message": "Settings saved!"})
 
+# ===== Manual Post API =====
+@app.route("/api/manual-post", methods=["POST"])
+@login_required
+def api_manual_post():
+    uid = get_uid()
+    d = request.json or {}
+    url = d.get("video_url", "").strip()
+    target_fb_pages = d.get("target_fb_pages", "all")
+    custom_title = d.get("custom_title")
+    custom_desc = d.get("custom_desc")
+    
+    if not url:
+        return jsonify({"success": False, "message": "YouTube Video URL is required!"}), 400
+        
+    t = threading.Thread(
+        target=engine.run_manual_post_for_user, 
+        args=(uid, url, target_fb_pages, custom_title, custom_desc), 
+        daemon=True
+    )
+    t.start()
+    return jsonify({"success": True, "message": "Manual video upload started in background!"})
+
 # ===== Sync API =====
 @app.route("/api/sync", methods=["POST"])
 @login_required

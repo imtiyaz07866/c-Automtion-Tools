@@ -105,6 +105,48 @@ def run_sync_for_user(user_id):
                 except: pass
     db.log_activity(user_id, "INFO", f"Sync done. Posted: {total}")
 
+import secrets
+
+def run_manual_post_for_user(user_id, video_url, target_fb_pages="all", custom_title=None, custom_desc=None):
+    """Manually post a specific video URL to target FB pages."""
+    db.log_activity(user_id, "INFO", f"Manual post process started for video: {video_url}")
+    fb_creds = db.get_fb_credentials(user_id)
+    if not fb_creds:
+        db.log_activity(user_id, "WARNING", "No Facebook Page connected for manual upload.")
+        return
+        
+    target_ids = [p.strip() for p in target_fb_pages.split(',')] if target_fb_pages != 'all' else None
+    
+    vid = "manual_" + secrets.token_hex(6)
+    ok, path, yt_title, yt_desc = download_video(video_url, vid)
+    if not ok:
+        db.log_activity(user_id, "ERROR", f"Manual video download failed: {path}")
+        return
+        
+    final_title = (custom_title or yt_title or "Video Post").strip()
+    final_desc = (custom_desc or yt_desc or "").strip()
+    
+    posted_count = 0
+    for fb in fb_creds:
+        if target_ids and fb['page_id'] not in target_ids:
+            continue
+            
+        uok, pid, uerr = upload_to_fb(path, final_title, final_desc, fb['page_id'], fb['access_token'])
+        if not uok and fb.get('backup_token'):
+            db.log_activity(user_id, "WARNING", f"Primary token failed on manual upload. Retrying Backup Token on Page {fb['page_id']}...")
+            uok, pid, uerr = upload_to_fb(path, final_title, final_desc, fb['page_id'], fb['backup_token'])
+            
+        db.record_upload(user_id, vid, final_title, video_url, fb['page_id'], pid, 'success' if uok else 'failed', uerr)
+        if uok:
+            posted_count += 1
+            db.log_activity(user_id, "INFO", f"Manual post uploaded to FB Page {fb['page_id']}! Video ID: {pid}")
+        else:
+            db.log_activity(user_id, "ERROR", f"Manual post failed on FB Page {fb['page_id']}: {uerr}")
+            
+    try: os.remove(path)
+    except: pass
+    db.log_activity(user_id, "INFO", f"Manual post finished. Uploaded to {posted_count} Facebook page(s).")
+
 def run_sync_all_users():
     """Scheduled job: run sync for ALL users who have active channels."""
     cleanup()

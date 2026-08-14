@@ -27,6 +27,9 @@
         <a href="#" class="nav-item" data-tab="channels">
             <span class="nav-icon">📺</span> YouTube Channels
         </a>
+        <a href="#" class="nav-item" data-tab="manual-post">
+            <span class="nav-icon">🚀</span> Direct Manual Post
+        </a>
         <a href="#" class="nav-item" data-tab="facebook">
             <span class="nav-icon">📘</span> Facebook Pages
         </a>
@@ -131,6 +134,38 @@
             <div id="channelsList">
                 <p class="text-muted text-center">Loading...</p>
             </div>
+        </div>
+    </section>
+
+    <!-- Direct Manual Video Post Tab -->
+    <section class="tab-content" id="tab-manual-post">
+        <div class="page-header">
+            <h2>🚀 Direct Manual Video Post</h2>
+            <p class="text-muted">Manually upload any YouTube video or Shorts link to Facebook Page instantly</p>
+        </div>
+        <div class="card card-form">
+            <h3>Post Specific Video Now</h3>
+            <form id="manualPostForm" onsubmit="handleManualPost(event)">
+                <div class="form-group">
+                    <label>YouTube Video URL or Shorts Link</label>
+                    <input type="text" id="manVideoUrl" placeholder="https://www.youtube.com/watch?v=... or https://www.youtube.com/shorts/..." required>
+                </div>
+                <div class="form-group">
+                    <label>Target Facebook Page</label>
+                    <select id="manTargetFb">
+                        <option value="all">🌐 All Connected Facebook Pages</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Custom Title (Optional)</label>
+                    <input type="text" id="manCustomTitle" placeholder="Custom Facebook Video Title (leave blank to use YouTube title)">
+                </div>
+                <div class="form-group">
+                    <label>Custom Description & Hashtags (Optional)</label>
+                    <textarea id="manCustomDesc" placeholder="Custom Facebook Video Description & Hashtags" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" id="btnManualPost">⚡ Upload Video Now</button>
+            </form>
         </div>
     </section>
 
