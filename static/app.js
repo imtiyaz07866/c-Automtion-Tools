@@ -576,22 +576,22 @@ function formatTime(t) {
     }
 }
 
-// ===== Auto-refresh Live Progress (%) every 2s =====
+// ===== Auto-refresh Live Progress (%) every 3s (Ultra-fast & Zero Lag) =====
 setInterval(async () => {
     try {
-        const stats = await api('/api/stats');
+        const res = await api('/api/progress');
         const banner = document.getElementById('liveProgressBanner');
         const progText = document.getElementById('liveProgressText');
         if (banner && progText) {
-            if (stats.active_progress && stats.active_progress.trim() !== '') {
-                progText.textContent = stats.active_progress;
+            if (res.active_progress && res.active_progress.trim() !== '') {
+                progText.textContent = res.active_progress;
                 banner.style.display = 'flex';
             } else {
                 banner.style.display = 'none';
             }
         }
     } catch(e) {}
-}, 2000);
+}, 3000);
 
 // ===== Auto-refresh Dashboard every 30s =====
 setInterval(() => {

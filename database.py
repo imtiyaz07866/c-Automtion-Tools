@@ -323,6 +323,12 @@ def get_upload_history(user_id, limit=50):
             "SELECT * FROM upload_history WHERE user_id=? ORDER BY processed_at DESC LIMIT ?", (user_id, limit)
         ).fetchall()]
 
+def get_upload_counts(user_id):
+    with get_connection() as conn:
+        s = conn.cursor().execute("SELECT COUNT(id) FROM upload_history WHERE user_id=? AND status='success'", (user_id,)).fetchone()
+        f = conn.cursor().execute("SELECT COUNT(id) FROM upload_history WHERE user_id=? AND status='failed'", (user_id,)).fetchone()
+        return (s[0] if s else 0), (f[0] if f else 0)
+
 # ===== Settings (per-user) =====
 def get_setting(user_id, key, default=None):
     with get_connection() as conn:
