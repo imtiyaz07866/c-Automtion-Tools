@@ -18,6 +18,18 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
 }
 
+function togglePass(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+    } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+    }
+}
+
 // ===== Toast Notifications =====
 function showToast(msg, type = 'success') {
     const t = document.getElementById('toast');
