@@ -450,6 +450,21 @@ def get_all_active_user_ids():
         rows = conn.cursor().execute("SELECT DISTINCT user_id FROM channels WHERE is_active=1").fetchall()
         return [r['user_id'] for r in rows]
 
+# ===== Admin Management Functions =====
+def get_all_users():
+    with get_connection() as conn:
+        return [dict(r) for r in conn.cursor().execute("SELECT id, username, display_name, email, is_approved, is_admin, created_at FROM users ORDER BY id ASC").fetchall()]
+
+def approve_user(user_id):
+    with get_connection() as conn:
+        conn.cursor().execute("UPDATE users SET is_approved=1 WHERE id=?", (user_id,))
+        conn.commit()
+
+def reject_user(user_id):
+    with get_connection() as conn:
+        conn.cursor().execute("DELETE FROM users WHERE id=? AND is_admin=0", (user_id,))
+        conn.commit()
+
 # Drop old tables and re-init (fresh start with user-based schema)
 def reset_db():
     with get_connection() as conn:

@@ -61,6 +61,12 @@
         <button onclick="logout()" class="btn" style="width:100%; margin-top:10px; background:rgba(239, 68, 68, 0.15); color:var(--red); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius-sm); padding:10px; font-size:0.9rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s ease;">
             🚪 Logout Account
         </button>
+        <!-- Discreet Bottom Corner Link for Admin -->
+        {% if user and user.is_admin %}
+        <a href="/admin" style="display:block; margin-top:10px; text-align:center; font-size:0.75rem; color:var(--text-muted); opacity:0.5; text-decoration:none; transition:opacity 0.2s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
+            🛡️ Admin Control Portal
+        </a>
+        {% endif %}
     </div>
 </aside>
 
@@ -398,15 +404,6 @@
                 </div>
                 <button type="submit" class="btn btn-primary" style="margin-top:15px;">💾 Save Security & Settings</button>
             </form>
-        </div>
-
-        <!-- Admin User Access Approval Card -->
-        <div class="card" id="adminUsersCard" style="border: 1px solid var(--accent); margin-top: 20px;">
-            <h3>🛡️ Admin Approval Control Panel (Access Security)</h3>
-            <p class="text-muted" style="margin-bottom:15px; font-size:0.85rem;">Only users approved by Admin (Imtiyaz Alam) can log in and use the app!</p>
-            <div id="adminUsersList" class="table-wrap">
-                <p class="text-muted text-center">Loading users...</p>
-            </div>
         </div>
 
         <!-- Developer Credit Card -->

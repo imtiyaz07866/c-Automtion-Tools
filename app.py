@@ -23,6 +23,16 @@ def login_required(f):
                 return jsonify({"error": "Not logged in", "redirect": "/login"}), 401
             return redirect(url_for('login_page'))
         return f(*args, **kwargs)
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        uid = get_uid()
+        user = db.get_user_by_id(uid) if uid else None
+        if not user or not user.get('is_admin'):
+            if request.is_json or request.path.startswith('/api/'):
+                return jsonify({"error": "Admin access required"}), 403
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
     return decorated
 
 def get_uid():
@@ -34,6 +44,12 @@ def login_page():
     if 'user_id' in session:
         return redirect("/")
     return render_template("login.html")
+
+@app.route("/admin")
+@login_required
+@admin_required
+def admin_page():
+    return render_template("admin.html", user=db.get_user_by_id(get_uid()))
 
 @app.route("/")
 @login_required
