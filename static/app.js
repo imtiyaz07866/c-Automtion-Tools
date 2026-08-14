@@ -182,9 +182,12 @@ async function toggleChannel(id, active) {
     loadDashboard();
 }
 
+let currentFBList = [];
+
 // ===== Facebook =====
 async function loadFB() {
     const list = await api('/api/facebook');
+    currentFBList = list;
     const el = document.getElementById('fbList');
 
     if (list.length === 0) {
@@ -204,11 +207,46 @@ async function loadFB() {
                 <div class="list-item-sub">Page ID: ${esc(fb.page_id)} &nbsp;|&nbsp; Token: ${esc(fb.token_preview)}</div>
             </div>
             <div class="list-item-actions">
+                <button class="btn-toggle active" onclick="openEditFB('${esc(fb.page_id)}')">✏️ Edit</button>
                 <button class="btn-icon-del" onclick="deleteFB('${esc(fb.page_id)}')">🗑️ Remove</button>
             </div>
         </div>`;
     });
     el.innerHTML = html;
+}
+
+function openEditFB(pageId) {
+    const fb = currentFBList.find(item => item.page_id === pageId);
+    if (!fb) return;
+    document.getElementById('editFBPageId').value = fb.page_id;
+    document.getElementById('editFBTitle').textContent = fb.page_name || fb.page_id;
+    document.getElementById('editFBName').value = fb.page_name || '';
+    document.getElementById('editFBToken').value = fb.access_token || '';
+    document.getElementById('editFBBackupToken').value = fb.backup_token || '';
+    
+    const card = document.getElementById('editFBCard');
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelEditFB() {
+    document.getElementById('editFBCard').style.display = 'none';
+}
+
+async function saveEditFB(e) {
+    e.preventDefault();
+    const page_id = document.getElementById('editFBPageId').value;
+    const page_name = document.getElementById('editFBName').value.trim();
+    const access_token = document.getElementById('editFBToken').value.trim();
+    const backup_token = document.getElementById('editFBBackupToken').value.trim();
+
+    const res = await api('/api/facebook/' + page_id, 'PUT', { access_token, backup_token, page_name });
+    showToast(res.message, res.success ? 'success' : 'error');
+    if (res.success) {
+        cancelEditFB();
+        loadFB();
+        loadDashboard();
+    }
 }
 
 async function addFB(e) {

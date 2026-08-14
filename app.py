@@ -191,6 +191,18 @@ def api_exchange_fb_token():
     except Exception as e:
         return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
 
+@app.route("/api/facebook/<pid>", methods=["PUT"])
+@login_required
+def api_update_fb(pid):
+    d = request.json or {}
+    ok, msg = db.update_fb_credentials(
+        get_uid(), pid, 
+        token=d.get("access_token"), 
+        name=d.get("page_name"), 
+        backup_token=d.get("backup_token")
+    )
+    return jsonify({"success": ok, "message": msg})
+
 @app.route("/api/facebook/<pid>", methods=["DELETE"])
 @login_required
 def api_del_fb(pid):

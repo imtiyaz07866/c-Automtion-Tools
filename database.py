@@ -45,6 +45,9 @@ def init_db():
             UNIQUE(user_id, channel_url),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )""")
+        
+        try: c.execute("ALTER TABLE channels ADD COLUMN target_fb_pages TEXT DEFAULT 'all'")
+        except: pass
 
         # Facebook Credentials (per-user) with Backup Token Support
         c.execute("""CREATE TABLE IF NOT EXISTS fb_credentials (
@@ -243,6 +246,30 @@ def save_fb_credentials(user_id, page_id, token, name=None, backup_token=None):
             conn.commit()
         log_activity(user_id, "INFO", f"FB credentials saved for Page {page_id}")
         return True, "Facebook credentials saved!"
+    except Exception as e:
+        return False, str(e)
+
+def update_fb_credentials(user_id, page_id, token=None, name=None, backup_token=None):
+    try:
+        with get_connection() as conn:
+            query = "UPDATE fb_credentials SET updated_at=CURRENT_TIMESTAMP"
+            params = []
+            if token is not None and token.strip():
+                query += ", access_token=?"
+                params.append(token.strip())
+            if backup_token is not None:
+                query += ", backup_token=?"
+                params.append(backup_token.strip() or None)
+            if name is not None and name.strip():
+                query += ", page_name=?"
+                params.append(name.strip())
+            query += " WHERE user_id=? AND page_id=?"
+            params.extend([user_id, page_id.strip()])
+            
+            conn.cursor().execute(query, params)
+            conn.commit()
+        log_activity(user_id, "INFO", f"Updated FB Page {page_id}")
+        return True, "Facebook Page updated successfully!"
     except Exception as e:
         return False, str(e)
 
