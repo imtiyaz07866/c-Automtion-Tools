@@ -154,7 +154,7 @@ def create_user(username, password, display_name=None, email=None):
         with get_connection() as conn:
             is_imtiyaz = ('imtiyaz' in username or 'imtiyaz' in email or 'imzbusiness' in email or username == 'admin')
             is_admin = 1 if is_imtiyaz else 0
-            is_approved = 1 if is_admin else 0
+            is_approved = 1
             
             conn.cursor().execute(
                 "INSERT INTO users (username, email, password_hash, display_name, is_approved, is_admin) VALUES (?, ?, ?, ?, ?, ?)",
