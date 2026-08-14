@@ -362,6 +362,31 @@ def api_get_settings():
         "user_info": session.get("user", {})
     })
 
+# ===== YouTube Cookies API =====
+@app.route("/api/settings/cookies", methods=["GET", "POST", "DELETE"])
+@login_required
+@admin_required
+def api_cookies():
+    cookie_file = os.path.join(app.root_path, "cookies.txt")
+    if request.method == "GET":
+        exists = os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 5
+        return jsonify({"exists": exists, "size": os.path.getsize(cookie_file) if exists else 0})
+    
+    elif request.method == "POST":
+        d = request.json or {}
+        content = d.get("content", "").strip()
+        if not content:
+            return jsonify({"success": False, "message": "Cookie content cannot be empty!"}), 400
+        with open(cookie_file, "w", encoding="utf-8") as f:
+            f.write(content)
+        return jsonify({"success": True, "message": "🍪 cookies.txt saved successfully! YouTube anti-bot security active."})
+    
+    elif request.method == "DELETE":
+        if os.path.exists(cookie_file):
+            try: os.remove(cookie_file)
+            except: pass
+        return jsonify({"success": True, "message": "cookies.txt deleted!"})
+
 # ===== Admin User Approval API =====
 @app.route("/api/admin/users", methods=["GET"])
 @login_required

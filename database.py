@@ -45,6 +45,23 @@ def init_db():
         except:
             pass
 
+        # Auto-seed default Super Admin if database is freshly created
+        try:
+            user_count = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            if user_count == 0:
+                default_pass_hash = hash_password("imtiyaz123")
+                c.execute(
+                    "INSERT INTO users (id, username, password_hash, display_name, email, is_approved, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (1, "imtiyaz", default_pass_hash, "Imtiyaz Alam", "imtiyazxbusiness@gmail.com", 1, 1)
+                )
+                c.execute(
+                    "INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, ?, ?)",
+                    (1, "gemini_api_key", "AIzaSyCBF5inRVo777af6Eez7cXAlbmHFWKd9mY")
+                )
+                conn.commit()
+        except:
+            pass
+
         # Channels table (per-user) with target FB pages mapping
         c.execute("""CREATE TABLE IF NOT EXISTS channels (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -12,6 +12,13 @@ def cleanup():
         try: os.remove(f)
         except: pass
 
+COOKIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+
+def get_cookies_file():
+    if os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 5:
+        return COOKIES_FILE
+    return None
+
 def fetch_latest_videos(channel_url, max_results=3):
     opts = {
         'extract_flat': 'in_playlist',
@@ -22,6 +29,9 @@ def fetch_latest_videos(channel_url, max_results=3):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web', 'mweb']}}
     }
+    cookie_path = get_cookies_file()
+    if cookie_path:
+        opts['cookiefile'] = cookie_path
     videos = []
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -86,6 +96,10 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web', 'mweb']}}
     }
+    cookie_path = get_cookies_file()
+    if cookie_path:
+        opts['cookiefile'] = cookie_path
+
     if user_id:
         opts['progress_hooks'] = [make_progress_hook(user_id)]
         db.set_setting(user_id, "active_progress", "⬇️ Downloading: 0.1%...")
@@ -113,6 +127,8 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
             'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'mweb']}}
         }
+        if cookie_path:
+            opts_fallback['cookiefile'] = cookie_path
         if user_id:
             opts_fallback['progress_hooks'] = [make_progress_hook(user_id)]
         if ff_path:

@@ -535,7 +535,44 @@ async function loadSettings() {
     if (document.getElementById('settPrivateMode')) {
         document.getElementById('settPrivateMode').value = s.allow_public_registration || '0';
     }
-    loadAdminUsers();
+    loadCookiesStatus();
+}
+
+async function loadCookiesStatus() {
+    try {
+        const badge = document.getElementById('cookiesStatusBadge');
+        if (!badge) return;
+        const res = await api('/api/settings/cookies');
+        if (res && res.exists) {
+            badge.style.background = 'rgba(16,185,129,0.2)';
+            badge.style.color = '#34d399';
+            badge.textContent = `🟢 cookies.txt Loaded (${res.size} Bytes)`;
+        } else {
+            badge.style.background = 'rgba(107,114,128,0.2)';
+            badge.style.color = '#9ca3af';
+            badge.textContent = '⚪ No Cookies File';
+        }
+    } catch(e) { console.error(e); }
+}
+
+async function saveCookies() {
+    const textEl = document.getElementById('cookiesContentText');
+    if (!textEl) return;
+    const content = textEl.value.trim();
+    if (!content) return showToast('Please paste Netscape cookies.txt content!', 'error');
+    const res = await api('/api/settings/cookies', 'POST', { content });
+    showToast(res.message, res.success ? 'success' : 'error');
+    if (res.success) {
+        textEl.value = '';
+        loadCookiesStatus();
+    }
+}
+
+async function deleteCookies() {
+    if (!confirm('Delete saved cookies.txt file?')) return;
+    const res = await api('/api/settings/cookies', 'DELETE');
+    showToast(res.message, res.success ? 'success' : 'error');
+    loadCookiesStatus();
 }
 
 async function saveSettings(e) {
