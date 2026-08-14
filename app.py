@@ -403,6 +403,14 @@ def api_sync():
     t.start()
     return jsonify({"success": True, "message": "Sync started!"})
 
+# ===== Cancel / Stop API =====
+@app.route("/api/cancel-process", methods=["POST"])
+@login_required
+def api_cancel_process():
+    uid = get_uid()
+    db.request_stop_sync(uid)
+    return jsonify({"success": True, "message": "🛑 Stopping active process..."})
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)

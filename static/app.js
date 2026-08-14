@@ -548,6 +548,16 @@ async function runSync() {
     }, 3000);
 }
 
+// ===== Cancel Process =====
+async function cancelProcess() {
+    if (!confirm('🛑 Stop and Cancel the active video download/upload process?')) return;
+    const res = await api('/api/cancel-process', 'POST');
+    showToast(res.message, 'error');
+    const banner = document.getElementById('liveProgressBanner');
+    if (banner) banner.style.display = 'none';
+    loadLogs();
+}
+
 // ===== Helpers =====
 function esc(s) {
     if (!s) return '';

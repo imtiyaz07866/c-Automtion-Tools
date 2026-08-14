@@ -337,6 +337,17 @@ def set_setting(user_id, key, val):
         )
         conn.commit()
 
+def request_stop_sync(user_id):
+    set_setting(user_id, "stop_requested", "1")
+    set_setting(user_id, "active_progress", "🛑 Process Cancelled by User")
+    log_activity(user_id, "WARNING", "🛑 Emergency Cancel/Stop triggered by user!")
+
+def is_stop_requested(user_id):
+    return get_setting(user_id, "stop_requested", "0") == "1"
+
+def clear_stop_request(user_id):
+    set_setting(user_id, "stop_requested", "0")
+
 # ===== Activity Logs (per-user) =====
 def log_activity(user_id, level, msg):
     try:

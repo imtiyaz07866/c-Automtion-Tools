@@ -40,6 +40,8 @@ def get_ffmpeg_path():
 def make_progress_hook(user_id):
     last_pct = [-1.0]
     def hook(d):
+        if user_id and db.is_stop_requested(user_id):
+            raise Exception("Process cancelled by user")
         if d.get('status') == 'downloading':
             total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
             downloaded = d.get('downloaded_bytes', 0)
@@ -151,6 +153,8 @@ def upload_to_fb_resumable(file_path, title, desc, page_id, token, user_id=None)
         # 2. PHASE TRANSFER (Chunked 8MB transfers)
         with open(file_path, 'rb') as f:
             while start_offset < file_size:
+                if user_id and db.is_stop_requested(user_id):
+                    return False, None, "Upload cancelled by user"
                 f.seek(start_offset)
                 chunk = f.read(end_offset - start_offset)
                 
@@ -279,6 +283,7 @@ IMPORTANT: Reply strictly in JSON format as follows with no markdown codeblocks:
 
 def run_sync_for_user(user_id):
     """Run sync for a specific user."""
+    db.clear_stop_request(user_id)
     db.log_activity(user_id, "INFO", "Sync started...")
     channels = [c for c in db.get_channels(user_id) if c.get('is_active', 1)]
     fb_creds = db.get_fb_credentials(user_id)
@@ -289,11 +294,17 @@ def run_sync_for_user(user_id):
     mx = int(db.get_setting(user_id, "max_videos_per_sync", "3"))
     total = 0
     for ch in channels:
+        if db.is_stop_requested(user_id):
+            db.log_activity(user_id, "WARNING", "Sync cancelled by user.")
+            break
         db.log_activity(user_id, "INFO", f"Checking: {ch['channel_url']}")
         target_pages = ch.get('target_fb_pages', 'all') or 'all'
         target_ids = [p.strip() for p in target_pages.split(',')] if target_pages != 'all' else None
 
         for vid in fetch_latest_videos(ch['channel_url'], mx):
+            if db.is_stop_requested(user_id):
+                db.log_activity(user_id, "WARNING", "Sync cancelled by user.")
+                break
             for fb in fb_creds:
                 if target_ids and fb['page_id'] not in target_ids:
                     continue
@@ -335,6 +346,7 @@ import secrets
 
 def run_manual_post_for_user(user_id, video_url, target_fb_pages="all", custom_title=None, custom_desc=None):
     """Manually post a specific video or latest video from channel to target FB pages."""
+    db.clear_stop_request(user_id)
     db.log_activity(user_id, "INFO", f"Manual post process started for link: {video_url}")
     fb_creds = db.get_fb_credentials(user_id)
     if not fb_creds:

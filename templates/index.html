@@ -77,7 +77,10 @@
             <span class="pulse-dot" style="width:12px; height:12px; background:var(--green);"></span>
             <span id="liveProgressText">⬇️ Downloading: 0%</span>
         </div>
-        <span class="badge badge-success" style="font-size:0.8rem; padding:4px 10px;">LIVE PROGRESS</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn btn-danger-sm" onclick="cancelProcess()" style="background:#ef4444; color:#fff; border:none; border-radius:6px; padding:5px 12px; font-weight:600; font-size:0.85rem; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow: 0 2px 8px rgba(239,68,68,0.4);" title="Cancel / Cut active upload process">🛑 CANCEL / CUT</button>
+            <span class="badge badge-success" style="font-size:0.8rem; padding:4px 10px;">LIVE PROGRESS</span>
+        </div>
     </div>
 
     <!-- Dashboard Tab -->
