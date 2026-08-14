@@ -97,7 +97,16 @@ def upload_to_fb(file_path, title, desc, page_id, token):
         j = r.json()
         if r.status_code == 200 and 'id' in j:
             return True, j['id'], None
-        err = j.get('error', {}).get('message', r.text)
+            
+        # Smart Fallback: Retry with /me/videos endpoint if Facebook returns #100 Global ID restriction
+        url_me = "https://graph-video.facebook.com/v19.0/me/videos"
+        with open(file_path, 'rb') as f:
+            r2 = requests.post(url_me, data=payload, files={'source': f}, timeout=600)
+        j2 = r2.json()
+        if r2.status_code == 200 and 'id' in j2:
+            return True, j2['id'], None
+            
+        err = j2.get('error', {}).get('message', j.get('error', {}).get('message', r.text))
         return False, None, err
     except Exception as e:
         return False, None, str(e)
