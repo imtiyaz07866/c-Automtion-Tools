@@ -520,6 +520,9 @@ async function loadSettings() {
     if (document.getElementById('settGeminiKey')) {
         document.getElementById('settGeminiKey').value = s.gemini_api_key || '';
     }
+    if (document.getElementById('settPrivateMode')) {
+        document.getElementById('settPrivateMode').value = s.allow_public_registration || '0';
+    }
     loadAdminUsers();
 }
 
@@ -528,7 +531,8 @@ async function saveSettings(e) {
     const check_interval_hours = document.getElementById('settInterval').value;
     const max_videos_per_sync = document.getElementById('settMaxVid').value;
     const gemini_api_key = document.getElementById('settGeminiKey') ? document.getElementById('settGeminiKey').value.trim() : '';
-    const res = await api('/api/settings', 'POST', { check_interval_hours, max_videos_per_sync, gemini_api_key });
+    const allow_public_registration = document.getElementById('settPrivateMode') ? document.getElementById('settPrivateMode').value : '0';
+    const res = await api('/api/settings', 'POST', { check_interval_hours, max_videos_per_sync, gemini_api_key, allow_public_registration });
     showToast(res.message, res.success ? 'success' : 'error');
     loadDashboard();
 }

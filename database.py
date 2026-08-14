@@ -126,7 +126,12 @@ def verify_password(password, stored_hash):
     except:
         return False
 
-# ===== User Functions =====
+# ===== User Functions & Private App Mode =====
+def is_public_registration_allowed():
+    with get_connection() as conn:
+        r = conn.cursor().execute("SELECT value FROM settings WHERE user_id=1 AND key='allow_public_registration'").fetchone()
+        return r['value'] == '1' if r else False  # Default PRIVATE MODE (False)
+
 def create_user(username, password, display_name=None):
     username = username.strip().lower()
     if not username or not password:
@@ -135,9 +140,15 @@ def create_user(username, password, display_name=None):
         return False, "Username kam se kam 3 characters ka hona chahiye.", None
     if len(password) < 4:
         return False, "Password kam se kam 4 characters ka hona chahiye.", None
+    
+    # Check Private Mode
+    with get_connection() as conn:
+        user_count = conn.cursor().execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        if user_count > 0 and not is_public_registration_allowed() and 'admin' not in username and 'imtiyaz' not in username:
+            return False, "🚫 App is currently in Private Mode for Admin Imtiyaz Alam only. Public registrations are closed.", None
+
     try:
         with get_connection() as conn:
-            # Auto-approve admin or first user
             user_count = conn.cursor().execute("SELECT COUNT(*) FROM users").fetchone()[0]
             is_admin = 1 if (user_count == 0 or 'admin' in username or 'imtiyaz' in username) else 0
             is_approved = 1 if is_admin else 0
@@ -193,6 +204,9 @@ def get_or_create_google_user(email, google_id=None, name=None, picture=None):
             return True, "Google Sign-In successful!", dict(updated)
             
         user_count = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        if user_count > 0 and not is_public_registration_allowed() and 'imzbusiness' not in email and 'imtiyaz' not in email:
+            return False, "🚫 App is currently in Private Mode for Admin Imtiyaz Alam only. Public registrations are closed.", None
+
         is_admin = 1 if (user_count == 0 or 'imzbusiness' in email or 'imtiyaz' in email) else 0
         is_approved = 1 if is_admin else 0
         

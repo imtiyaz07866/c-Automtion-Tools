@@ -365,6 +365,7 @@ def api_get_settings():
         "check_interval_hours": db.get_setting(uid, "check_interval_hours", "1"),
         "max_videos_per_sync": db.get_setting(uid, "max_videos_per_sync", "3"),
         "gemini_api_key": db.get_setting(uid, "gemini_api_key", ""),
+        "allow_public_registration": db.get_setting(1, "allow_public_registration", "0"),
         "user_info": session.get("user", {})
     })
 
@@ -400,8 +401,10 @@ def api_save_settings():
     db.set_setting(uid, "check_interval_hours", d.get("check_interval_hours", "1"))
     db.set_setting(uid, "max_videos_per_sync", d.get("max_videos_per_sync", "3"))
     if "gemini_api_key" in d:
-        db.set_setting(uid, "gemini_api_key", d.get("gemini_api_key", "").strip())
-    return jsonify({"success": True, "message": "Settings saved!"})
+        db.set_setting(uid, "gemini_api_key", d.get("gemini_api_key", ""))
+    if "allow_public_registration" in d:
+        db.set_setting(1, "allow_public_registration", str(d.get("allow_public_registration", "0")))
+    return jsonify({"success": True, "message": "Settings Saved Successfully!"})
 
 # ===== Manual Post API =====
 @app.route("/api/manual-post", methods=["POST"])
