@@ -174,40 +174,34 @@
         <div class="page-header">
             <h2>📘 Facebook Page Settings</h2>
             <p class="text-muted">Connect your Facebook Pages for auto-posting</p>
-        <!-- Direct 1-Click Facebook Account Connect Card -->
-        <div class="card card-form" style="border: 1px solid rgba(59, 130, 246, 0.4); background: linear-gradient(135deg, rgba(30,58,138,0.6), rgba(15,23,42,0.9)); margin-bottom: 20px;">
+        <!-- Super Clean 1-Click Facebook Auto-Connect Card -->
+        <div class="card card-form" style="border: 1px solid rgba(59, 130, 246, 0.4); background: linear-gradient(135deg, rgba(30,58,138,0.6), rgba(15,23,42,0.9)); margin-bottom: 25px;">
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
                 <div>
-                    <h3 style="color:#60a5fa; margin:0;">🔵 1-Click Direct Facebook ID Connect</h3>
-                    <p class="text-muted" style="margin:5px 0 0 0; font-size:0.85rem;">Apni Facebook ID se direct connect karein — Saare Facebook Pages ek saath import ho jayenge!</p>
+                    <h3 style="color:#60a5fa; margin:0;">⚡ 1-Click Facebook Account & Pages Connect</h3>
+                    <p class="text-muted" style="margin:5px 0 0 0; font-size:0.85rem;">Connect any Facebook Account to import ALL its Facebook Pages automatically!</p>
                 </div>
-                <span class="badge badge-success">✨ Direct FB Login</span>
+                <span class="badge badge-success">🚀 Auto-Discovery Engine</span>
+            </div>
+
+            <div style="margin-top:15px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.08); padding:16px; border-radius:10px;">
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                    <a href="https://developers.facebook.com/tools/explorer" target="_blank" class="btn btn-toggle active" style="text-decoration:none; font-size:0.85rem;">
+                        🔗 Step 1: Open Meta Graph Explorer & Click "Generate Token"
+                    </a>
+                </div>
+                
+                <form id="fetchPagesForm" onsubmit="fetchUserFBPages(event)">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="color:#e2e8f0; font-weight:600;">Step 2: Paste Token Here</label>
+                        <textarea id="userFBToken" placeholder="Paste Access Token (e.g. EAA...)" rows="2" style="background:#0f172a; border-color:#334155; color:#fff;" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="background:#1877f2; border-color:#1877f2; font-weight:600; width:100%; justify-content:center; padding:12px;">
+                        ⚡ Fetch & Auto-Connect All Pages
+                    </button>
+                </form>
             </div>
             
-            <div style="margin-top:15px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-                <button type="button" class="btn btn-primary" onclick="triggerDirectFBLogin()" style="background:#1877f2; border-color:#1877f2; font-weight:600; font-size:1rem; padding:12px 22px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle; margin-right:8px;"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                    Connect Facebook ID (1-Click)
-                </button>
-            </div>
-        </div>
-
-        <!-- 1-Click Auto Fetcher Card -->
-        <div class="card card-form" style="border: 1px solid rgba(79, 70, 229, 0.4); background: linear-gradient(135deg, rgba(30,27,75,0.6), rgba(15,23,42,0.8)); margin-bottom: 20px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                <div>
-                    <h3 style="color:var(--accent-glow); margin:0;">⚡ 1-Click Auto Fetch Facebook Pages</h3>
-                    <p class="text-muted" style="margin:5px 0 0 0; font-size:0.85rem;">Paste your Facebook User/App Token once — System will auto-detect and import ALL your managed Facebook Pages in 1-Click!</p>
-                </div>
-                <span class="badge badge-success">🚀 Auto-Discovery Ready</span>
-            </div>
-            <form id="fetchPagesForm" onsubmit="fetchUserFBPages(event)" style="margin-top:15px;">
-                <div class="form-group">
-                    <label>Facebook User Token / App Token</label>
-                    <textarea id="userFBToken" placeholder="Paste User Token from Graph Explorer (e.g. EAA...)" rows="2" required></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary" style="background:var(--accent); border-color:var(--accent);">🔍 Fetch All My Facebook Pages</button>
-            </form>
             <div id="fetchedPagesContainer" style="margin-top: 15px;"></div>
         </div>
 
