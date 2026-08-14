@@ -58,6 +58,44 @@ def api_login():
         session['display_name'] = user.get('display_name', user['username'])
     return jsonify({"success": ok, "message": msg})
 
+import base64
+import json
+
+@app.route("/api/google-login", methods=["POST"])
+def api_google_login():
+    d = request.json or {}
+    email = d.get("email")
+    google_id = d.get("google_id")
+    name = d.get("name")
+    picture = d.get("picture")
+    
+    credential = d.get("credential")
+    if credential and not email:
+        try:
+            parts = credential.split('.')
+            if len(parts) == 3:
+                padding = '=' * (4 - len(parts[1]) % 4)
+                payload_str = base64.urlsafe_b64decode(parts[1] + padding).decode('utf-8')
+                payload = json.loads(payload_str)
+                email = payload.get("email")
+                google_id = payload.get("sub")
+                name = payload.get("name")
+                picture = payload.get("picture")
+        except Exception:
+            pass
+            
+    if not email:
+        return jsonify({"success": False, "message": "Valid Gmail address required."}), 400
+        
+    ok, msg, user = db.get_or_create_google_user(email, google_id, name, picture)
+    if ok and user:
+        session.permanent = True
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['display_name'] = user.get('display_name', user['username'])
+        session['avatar_url'] = user.get('avatar_url')
+    return jsonify({"success": ok, "message": msg, "user": user})
+
 @app.route("/api/logout", methods=["POST"])
 def api_logout():
     session.clear()

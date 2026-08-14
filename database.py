@@ -16,14 +16,22 @@ def init_db():
     with get_connection() as conn:
         c = conn.cursor()
 
-        # Users table
+        # Users table (supports Username/Password & Google Sign-In)
         c.execute("""CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             display_name TEXT,
+            email TEXT UNIQUE,
+            google_id TEXT UNIQUE,
+            avatar_url TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""")
+        
+        # Migrations for existing DB
+        for col, col_type in [("email", "TEXT"), ("google_id", "TEXT"), ("avatar_url", "TEXT")]:
+            try: c.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+            except: pass
 
         # Channels table (per-user) with target FB pages mapping
         c.execute("""CREATE TABLE IF NOT EXISTS channels (
@@ -135,6 +143,36 @@ def login_user(username, password):
         if not verify_password(password, user['password_hash']):
             return False, "Password galat hai.", None
         return True, "Login successful!", dict(user)
+
+def get_or_create_google_user(email, google_id=None, name=None, picture=None):
+    email = email.strip().lower()
+    name = name or email.split('@')[0]
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        user = cursor.execute(
+            "SELECT * FROM users WHERE email=? OR google_id=? OR username=?",
+            (email, google_id or "", email)
+        ).fetchone()
+        
+        if user:
+            cursor.execute(
+                "UPDATE users SET google_id=COALESCE(google_id, ?), avatar_url=COALESCE(avatar_url, ?), display_name=COALESCE(display_name, ?) WHERE id=?",
+                (google_id, picture, name, user['id'])
+            )
+            conn.commit()
+            updated = cursor.execute("SELECT * FROM users WHERE id=?", (user['id'],)).fetchone()
+            return True, "Google Sign-In successful!", dict(updated)
+            
+        dummy_hash = hash_password(secrets.token_hex(16))
+        cursor.execute(
+            "INSERT INTO users (username, password_hash, display_name, email, google_id, avatar_url) VALUES (?, ?, ?, ?, ?, ?)",
+            (email, dummy_hash, name, email, google_id, picture)
+        )
+        conn.commit()
+        new_user = cursor.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        set_setting(new_user['id'], "check_interval_hours", "1")
+        set_setting(new_user['id'], "max_videos_per_sync", "3")
+        return True, "Google account created & logged in!", dict(new_user)
 
 def get_user_by_id(user_id):
     with get_connection() as conn:
