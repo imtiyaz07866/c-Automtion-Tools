@@ -174,9 +174,27 @@
         <div class="page-header">
             <h2>📘 Facebook Page Settings</h2>
             <p class="text-muted">Connect your Facebook Pages for auto-posting</p>
+        <!-- 1-Click Auto Fetcher Card -->
+        <div class="card card-form" style="border: 1px solid rgba(79, 70, 229, 0.4); background: linear-gradient(135deg, rgba(30,27,75,0.6), rgba(15,23,42,0.8)); margin-bottom: 20px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h3 style="color:var(--accent-glow); margin:0;">⚡ 1-Click Auto Fetch Facebook Pages</h3>
+                    <p class="text-muted" style="margin:5px 0 0 0; font-size:0.85rem;">Paste your Facebook User/App Token once — System will auto-detect and import ALL your managed Facebook Pages in 1-Click!</p>
+                </div>
+                <span class="badge badge-success">🚀 Auto-Discovery Ready</span>
+            </div>
+            <form id="fetchPagesForm" onsubmit="fetchUserFBPages(event)" style="margin-top:15px;">
+                <div class="form-group">
+                    <label>Facebook User Token / App Token</label>
+                    <textarea id="userFBToken" placeholder="Paste User Token from Graph Explorer (e.g. EAA...)" rows="2" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="background:var(--accent); border-color:var(--accent);">🔍 Fetch All My Facebook Pages</button>
+            </form>
+            <div id="fetchedPagesContainer" style="margin-top: 15px;"></div>
         </div>
+
         <div class="card card-form">
-            <h3>Add Facebook Page</h3>
+            <h3>Add Facebook Page Manually</h3>
             <form id="addFBForm" onsubmit="addFB(event)">
                 <div class="form-group">
                     <label>Facebook Page ID</label>

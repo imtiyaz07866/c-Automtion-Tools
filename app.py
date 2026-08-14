@@ -236,6 +236,64 @@ def api_verify_fb_token():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route("/api/facebook/fetch-user-pages", methods=["POST"])
+@login_required
+def api_fetch_user_pages():
+    d = request.json or {}
+    token = d.get("user_token", "").strip()
+    if not token:
+        return jsonify({"success": False, "message": "Facebook Token required!"}), 400
+        
+    try:
+        import requests
+        url = "https://graph.facebook.com/v19.0/me/accounts"
+        params = {
+            "fields": "id,name,access_token,category",
+            "limit": 100,
+            "access_token": token
+        }
+        r = requests.get(url, params=params, timeout=15)
+        j = r.json()
+        
+        if r.status_code == 200 and "data" in j:
+            pages = j["data"]
+            if not pages:
+                return jsonify({"success": False, "message": "No Facebook Pages found managed by this account!"}), 404
+            return jsonify({
+                "success": True,
+                "message": f"Found {len(pages)} Facebook Page(s)!",
+                "pages": pages
+            })
+        else:
+            err = j.get("error", {}).get("message", r.text)
+            return jsonify({"success": False, "message": f"Failed to fetch Facebook Pages: {err}"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/api/facebook/connect-multiple-pages", methods=["POST"])
+@login_required
+def api_connect_multiple_pages():
+    d = request.json or {}
+    pages = d.get("pages", [])
+    if not pages:
+        return jsonify({"success": False, "message": "No pages selected!"}), 400
+        
+    added_count = 0
+    uid = get_uid()
+    for p in pages:
+        pid = str(p.get("id", "")).strip()
+        token = str(p.get("access_token", "")).strip()
+        name = str(p.get("name", "")).strip()
+        if pid and token:
+            ok, msg = db.save_fb_credentials(uid, pid, token, name)
+            if ok:
+                added_count += 1
+                
+    return jsonify({
+        "success": True,
+        "message": f"Successfully connected {added_count} Facebook Page(s)!"
+    })
+
 @app.route("/api/facebook/<pid>", methods=["PUT"])
 @login_required
 def api_update_fb(pid):

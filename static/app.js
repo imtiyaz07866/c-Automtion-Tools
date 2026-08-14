@@ -302,6 +302,71 @@ async function addFB(e) {
     }
 }
 
+let fetchedPagesData = [];
+
+async function fetchUserFBPages(e) {
+    e.preventDefault();
+    const user_token = document.getElementById('userFBToken').value.trim();
+    const container = document.getElementById('fetchedPagesContainer');
+    if (!user_token) return showToast('Please enter Facebook User Token!', 'error');
+    
+    container.innerHTML = '<p style="color:var(--accent-glow); font-size:0.9rem;">🔍 Fetching all managed Facebook Pages from Graph API...</p>';
+    const res = await api('/api/facebook/fetch-user-pages', 'POST', { user_token });
+    
+    if (res.success && res.pages && res.pages.length > 0) {
+        fetchedPagesData = res.pages;
+        let html = `<div style="padding:15px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                <h4 style="margin:0; color:var(--green);">🎉 ${res.pages.length} Facebook Page(s) Found!</h4>
+                <button type="button" class="btn btn-primary" onclick="connectSelectedFBPages()">⚡ Connect All Selected Pages</button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">`;
+            
+        res.pages.forEach((p, idx) => {
+            html += `
+                <label style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--bg-dark); border:1px solid rgba(255,255,255,0.08); border-radius:8px; cursor:pointer;">
+                    <input type="checkbox" class="fetched-page-cb" data-idx="${idx}" checked style="width:18px; height:18px; accent-color:var(--accent);">
+                    <div style="flex:1;">
+                        <strong style="color:#fff; font-size:0.95rem;">${esc(p.name)}</strong>
+                        <span style="font-size:0.75rem; color:var(--text-muted); display:block;">Page ID: ${esc(p.id)} | Category: ${esc(p.category || 'General')}</span>
+                    </div>
+                    <span class="badge badge-success">Page Token Attached</span>
+                </label>`;
+        });
+        
+        html += `</div></div>`;
+        container.innerHTML = html;
+        showToast(`Found ${res.pages.length} Pages!`);
+    } else {
+        container.innerHTML = `<div style="padding:10px 14px; background:rgba(248,113,113,0.1); border:1px solid var(--red); border-radius:8px; color:var(--red); font-size:0.85rem;">
+            ❌ ${esc(res.message || 'No Facebook Pages found!')}
+        </div>`;
+        showToast(res.message || 'Failed to fetch pages', 'error');
+    }
+}
+
+async function connectSelectedFBPages() {
+    const cbs = document.querySelectorAll('.fetched-page-cb:checked');
+    if (cbs.length === 0) return showToast('Please select at least 1 Facebook Page!', 'error');
+    
+    const selected = [];
+    cbs.forEach(cb => {
+        const idx = parseInt(cb.getAttribute('data-idx'));
+        if (fetchedPagesData[idx]) {
+            selected.push(fetchedPagesData[idx]);
+        }
+    });
+    
+    const res = await api('/api/facebook/connect-multiple-pages', 'POST', { pages: selected });
+    if (res.success) {
+        showToast(res.message);
+        document.getElementById('fetchedPagesContainer').innerHTML = '';
+        loadFacebookPages();
+    } else {
+        showToast(res.message, 'error');
+    }
+}
+
 async function verifyFBTokenInput() {
     const access_token = document.getElementById('fbToken').value.trim();
     const resultDiv = document.getElementById('tokenVerifyResult');
