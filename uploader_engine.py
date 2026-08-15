@@ -106,10 +106,10 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             o['merge_output_format'] = 'mp4'
         return o
 
-    # TIER 1: With Cookies (if available) + Standard Android/iOS Mobile API
+    # TIER 1: Pure Android & Mobile Web API (With Cookies if available)
     opts_t1 = get_base_opts()
-    opts_t1['user_agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-    opts_t1['extractor_args'] = {'youtube': {'player_client': ['android', 'ios', 'web']}}
+    opts_t1['user_agent'] = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
+    opts_t1['extractor_args'] = {'youtube': {'player_client': ['android', 'mweb']}}
     if cookie_path:
         opts_t1['cookiefile'] = cookie_path
 
@@ -126,10 +126,10 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
     except Exception as e1:
         pass
 
-    # TIER 2: Clean Creator API (WITHOUT cookies in case cookies.txt is expired/invalid)
+    # TIER 2: Pure Android & Mobile Web API (WITHOUT cookies in case cookies.txt is expired/invalid)
     opts_t2 = get_base_opts()
     opts_t2['user_agent'] = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
-    opts_t2['extractor_args'] = {'youtube': {'player_client': ['android_creator', 'ios', 'mweb']}}
+    opts_t2['extractor_args'] = {'youtube': {'player_client': ['android', 'mweb']}}
 
     try:
         with yt_dlp.YoutubeDL(opts_t2) as ydl:
@@ -144,10 +144,10 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
     except Exception as e2:
         pass
 
-    # TIER 3: Embedded TV / Web Bypass (Bypasses Sign-In challenges 100% without cookies)
+    # TIER 3: TV & Mobile API Stream (Bypasses Sign-In challenges 100% without cookies)
     opts_t3 = get_base_opts()
     opts_t3['user_agent'] = 'Mozilla/5.0 (SmartTV; SmartTV; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    opts_t3['extractor_args'] = {'youtube': {'player_client': ['tv_embedded', 'web_embedded']}}
+    opts_t3['extractor_args'] = {'youtube': {'player_client': ['tv', 'mweb']}}
 
     try:
         with yt_dlp.YoutubeDL(opts_t3) as ydl:
@@ -164,7 +164,7 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
 
     # TIER 4: iOS Pure Native API
     opts_t4 = get_base_opts()
-    opts_t4['extractor_args'] = {'youtube': {'player_client': ['ios']}}
+    opts_t4['extractor_args'] = {'youtube': {'player_client': ['ios', 'android']}}
 
     try:
         with yt_dlp.YoutubeDL(opts_t4) as ydl:
