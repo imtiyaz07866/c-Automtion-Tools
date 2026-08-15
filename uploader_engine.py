@@ -130,7 +130,9 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
         return matches[0] if matches else None
 
     def make_opts(fmt, clients, cookies=True, ua=None, player_params=None):
-        ext_args = {'player_client': clients}
+        ext_args = {}
+        if clients:
+            ext_args['player_client'] = clients
         if player_params:
             ext_args['player_params'] = [player_params]
         o = {
@@ -140,14 +142,13 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             'no_warnings': True,
             'nocheckcertificate': True,
             'geo_bypass': True,
-            'extractor_args': {'youtube': ext_args},
-            # Slow down requests to avoid rate-based bot detection
             'sleep_interval': 3,
             'max_sleep_interval': 8,
-            # Retry transient failures before giving up
             'retries': 3,
             'fragment_retries': 3,
         }
+        if ext_args:
+            o['extractor_args'] = {'youtube': ext_args}
         if ua: o['user_agent'] = ua
         if cookies and cookie_path: o['cookiefile'] = cookie_path
         if ff_path:
@@ -184,20 +185,20 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
                     db.log_activity(user_id, "WARNING", f"{name} FAIL: {err_str[:250]}")
         return None
 
-    # Format strings
+    # Format strings — HQ uses best quality with merge, safe uses 'best' (single stream, always available)
     if max_res == "720p":
         fmt_hq = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
     elif max_res == "1080p":
         fmt_hq = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
     else:
         fmt_hq = 'bestvideo+bestaudio/best'
-    fmt_safe = '22/18/best'   # itag 22=720p mp4, 18=360p mp4 — always available
+    fmt_safe = 'best'   # Single combined stream — always available on any video
 
     # T1: web client + fresh cookies (standard login session, best format access)
     r = try_dl("T1[web+cookies+HQ]", fmt_hq, ['web'], cookies=True)
     if r: return r
 
-    # T2: web + cookies + safe format
+    # T2: web + cookies + safe format (single stream, no merge needed)
     r = try_dl("T2[web+cookies+safe]", fmt_safe, ['web'], cookies=True)
     if r: return r
 
@@ -205,27 +206,36 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
     r = try_dl("T3[web_creator+HQ]", fmt_hq, ['web_creator'], cookies=True)
     if r: return r
 
-    # T4: tv_embedded + player_params=IA8= (embed bypass param) + cookies
-    r = try_dl("T4[tv_embed+IA8+ck]", fmt_safe, ['tv_embedded'],
+    # T4: android + cookies + HQ (app client, very reliable)
+    r = try_dl("T4[android+cookies+HQ]", fmt_hq, ['android'], cookies=True,
+               ua='com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip')
+    if r: return r
+
+    # T5: android + cookies + safe
+    r = try_dl("T5[android+cookies+safe]", fmt_safe, ['android'], cookies=True,
+               ua='com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip')
+    if r: return r
+
+    # T6: tv_embedded + IA8= (embed bypass param) + cookies
+    r = try_dl("T6[tv_embed+IA8+ck]", fmt_safe, ['tv_embedded'],
                cookies=True, player_params='IA8=')
     if r: return r
 
-    # T5: tv_embedded + IA8= embed bypass, NO cookies (clean session)
-    r = try_dl("T5[tv_embed+IA8+clean]", fmt_safe, ['tv_embedded'],
+    # T7: tv_embedded + IA8= clean session (no cookies)
+    r = try_dl("T7[tv_embed+IA8+clean]", fmt_safe, ['tv_embedded'],
                cookies=False, player_params='IA8=')
     if r: return r
 
-    # T6: android_vr (Daydream - minimal bot checks)
-    r = try_dl("T6[android_vr]", fmt_hq, ['android_vr', 'tv_embedded'], cookies=True)
+    # T8: android_vr (Daydream - minimal bot checks)
+    r = try_dl("T8[android_vr]", fmt_safe, ['android_vr'], cookies=True)
     if r: return r
 
-    # T7: android app UA
-    r = try_dl("T7[android]", fmt_hq, ['android'],
-               cookies=True, ua='com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip')
+    # T9: mweb last resort
+    r = try_dl("T9[mweb]", fmt_safe, ['mweb'], cookies=True)
     if r: return r
 
-    # T8: mweb last resort
-    r = try_dl("T8[mweb]", fmt_safe, ['mweb'], cookies=True)
+    # T10: absolute last resort — no client override, just cookies + best format
+    r = try_dl("T10[default+best]", 'best', None, cookies=True)
     if r: return r
 
     if user_id:
