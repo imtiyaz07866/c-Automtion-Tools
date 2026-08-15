@@ -99,12 +99,15 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
     ff_path = get_ffmpeg_path()
     
     # Format selection based on max_res
+    # Always include 'best' as final fallback for clients with limited formats (tv_embedded)
     if max_res == "1080p":
-        fmt = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best'
+        fmt_split = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
     elif max_res == "720p":
-        fmt = 'bestvideo[height<=720]+bestaudio/bestvideo+bestaudio/best'
+        fmt_split = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best'
     else:
-        fmt = 'bestvideo+bestaudio/best'
+        fmt_split = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
+    # tv_embedded only has combined streams - use 'best' only
+    fmt_combined = 'best[ext=mp4]/best'
 
     cookie_path = get_cookies_file()
 
@@ -117,9 +120,9 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
         cookie_size = os.path.getsize(cookie_path) if cookie_path and os.path.exists(cookie_path) else 0
         db.log_activity(user_id, "INFO", f"🔍 yt-dlp={ver_str}, cookies={'YES('+str(cookie_size)+'B)' if cookie_path else 'NO'}, ffmpeg={'YES' if ff_path else 'NO'}")
 
-    def get_base_opts(client_list, use_cookies=True, ua=None):
+    def get_base_opts(client_list, use_cookies=True, ua=None, combined_only=False):
         o = {
-            'format': fmt,
+            'format': fmt_combined if combined_only else fmt_split,
             'outtmpl': out,
             'quiet': True,
             'no_warnings': True,
@@ -155,16 +158,16 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
                 db.log_activity(user_id, "WARNING", f"{tier_name} failed: {str(e)[:200]}")
         return None
 
-    # TIER 1: tv_embedded (doesn't require sign-in, works on datacenter IPs)
-    r = try_download(get_base_opts(['tv_embedded', 'mweb'], use_cookies=True), "T1[tv_embedded+cookies]")
+    # TIER 1: tv_embedded + combined format (works on datacenter IPs, no separate streams)
+    r = try_download(get_base_opts(['tv_embedded', 'mweb'], use_cookies=True, combined_only=True), "T1[tv_embedded+combined]")
     if r: return r
 
-    # TIER 2: mweb only with cookies (mobile web has lighter bot checks)
-    r = try_download(get_base_opts(['mweb'], use_cookies=True), "T2[mweb+cookies]")
+    # TIER 2: tv_embedded with split format attempt (some videos have separate streams)
+    r = try_download(get_base_opts(['tv_embedded', 'mweb'], use_cookies=True, combined_only=False), "T2[tv_embedded+split]")
     if r: return r
 
-    # TIER 3: tv_embedded without cookies (clean session, no cookie mismatch)
-    r = try_download(get_base_opts(['tv_embedded', 'mweb'], use_cookies=False), "T3[tv_embedded-nocookies]")
+    # TIER 3: mweb only with cookies + split format
+    r = try_download(get_base_opts(['mweb'], use_cookies=True), "T3[mweb+cookies]")
     if r: return r
 
     # TIER 4: Android app UA + android client
@@ -172,14 +175,18 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
     r = try_download(get_base_opts(['android', 'mweb'], use_cookies=True, ua=android_ua), "T4[android+cookies]")
     if r: return r
 
-    # TIER 5: iOS client
+    # TIER 5: tv_embedded no cookies + combined format (clean session)
+    r = try_download(get_base_opts(['tv_embedded'], use_cookies=False, combined_only=True), "T5[tv_embedded-clean]")
+    if r: return r
+
+    # TIER 6: iOS client last resort
     ios_ua = 'com.google.ios.youtube/19.29.1 (iPhone14,3; U; CPU iOS 17_5_1 like Mac OS X; en_US)'
-    r = try_download(get_base_opts(['ios', 'tv_embedded'], use_cookies=False, ua=ios_ua), "T5[ios-nocookies]")
+    r = try_download(get_base_opts(['ios'], use_cookies=False, ua=ios_ua, combined_only=True), "T6[ios-combined]")
     if r: return r
 
     if user_id:
-        db.log_activity(user_id, "ERROR", "ALL 5 TIERS FAILED - YouTube blocking all clients on this IP")
-    return False, "All download methods blocked by YouTube on this server IP", "", ""
+        db.log_activity(user_id, "ERROR", "ALL 6 TIERS FAILED - check Activity Logs for details")
+    return False, "All download methods failed - check activity logs", "", ""
 
 
 def upload_to_fb_resumable(file_path, title, desc, page_id, token, user_id=None):
