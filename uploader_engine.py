@@ -98,96 +98,104 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
     out = os.path.join(TEMP_DIR, f"{video_id}.%(ext)s")
     ff_path = get_ffmpeg_path()
     
-    # Format selection based on max_res
-    # Always include 'best' as final fallback for clients with limited formats (tv_embedded)
-    if max_res == "1080p":
-        fmt_split = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
-    elif max_res == "720p":
-        fmt_split = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best'
-    else:
-        fmt_split = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
-    # tv_embedded only has combined streams - use 'best' only
-    fmt_combined = 'best[ext=mp4]/best'
-
     cookie_path = get_cookies_file()
 
-    # Diagnostic logging for Render Cloud debugging
+    # Diagnostic log
     if user_id:
-        try:
-            ver_str = yt_dlp.version.__version__
-        except:
-            ver_str = 'unknown'
-        cookie_size = os.path.getsize(cookie_path) if cookie_path and os.path.exists(cookie_path) else 0
-        db.log_activity(user_id, "INFO", f"🔍 yt-dlp={ver_str}, cookies={'YES('+str(cookie_size)+'B)' if cookie_path else 'NO'}, ffmpeg={'YES' if ff_path else 'NO'}")
+        try: ver_str = yt_dlp.version.__version__
+        except: ver_str = 'unknown'
+        ck = f"YES({os.path.getsize(cookie_path)}B)" if cookie_path and os.path.exists(cookie_path) else "NO"
+        db.log_activity(user_id, "INFO", f"DL start: ytdlp={ver_str} cookies={ck} ff={'YES' if ff_path else 'NO'}")
 
-    def get_base_opts(client_list, use_cookies=True, ua=None, combined_only=False):
+    def find_file():
+        """Find downloaded file by video_id regardless of extension."""
+        for ext in ['mp4', 'mkv', 'webm', 'avi', 'm4v']:
+            p = os.path.join(TEMP_DIR, f"{video_id}.{ext}")
+            if os.path.exists(p): return p
+        matches = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
+        return matches[0] if matches else None
+
+    def make_opts(fmt, clients, cookies=True, ua=None):
         o = {
-            'format': fmt_combined if combined_only else fmt_split,
+            'format': fmt,
             'outtmpl': out,
             'quiet': True,
             'no_warnings': True,
             'nocheckcertificate': True,
             'geo_bypass': True,
-            'extractor_args': {'youtube': {'player_client': client_list}},
+            'extractor_args': {'youtube': {'player_client': clients}},
         }
-        if ua:
-            o['user_agent'] = ua
-        if use_cookies and cookie_path:
-            o['cookiefile'] = cookie_path
-        if user_id:
-            o['progress_hooks'] = [make_progress_hook(user_id)]
-            db.set_setting(user_id, "active_progress", "⬇️ Downloading: 0.1%...")
+        if ua: o['user_agent'] = ua
+        if cookies and cookie_path: o['cookiefile'] = cookie_path
         if ff_path:
             o['ffmpeg_location'] = ff_path
             o['merge_output_format'] = 'mp4'
+        if user_id:
+            o['progress_hooks'] = [make_progress_hook(user_id)]
+            db.set_setting(user_id, "active_progress", "Downloading: 0%...")
         return o
 
-    def try_download(opts, tier_name):
+    def try_dl(name, fmt, clients, cookies=True, ua=None):
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            with yt_dlp.YoutubeDL(make_opts(fmt, clients, cookies, ua)) as ydl:
                 info = ydl.extract_info(video_url, download=True)
-                fn = ydl.prepare_filename(info)
-                base, _ = os.path.splitext(fn)
-                mp4 = f"{base}.mp4"
-                if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
-                if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
-                m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
-                if m: return True, m[0], info.get('title',''), info.get('description','')
+                f = find_file()
+                if not f:
+                    fn = ydl.prepare_filename(info)
+                    base = os.path.splitext(fn)[0]
+                    for ext in ['mp4', 'mkv', 'webm']:
+                        if os.path.exists(f"{base}.{ext}"):
+                            f = f"{base}.{ext}"
+                            break
+                if f:
+                    if user_id: db.log_activity(user_id, "INFO", f"SUCCESS {name}: {os.path.basename(f)}")
+                    return True, f, info.get('title', ''), info.get('description', '')
         except Exception as e:
-            if user_id:
-                db.log_activity(user_id, "WARNING", f"{tier_name} failed: {str(e)[:200]}")
+            if user_id: db.log_activity(user_id, "WARNING", f"{name} FAIL: {str(e)[:250]}")
         return None
 
-    # TIER 1: tv_embedded + combined format (works on datacenter IPs, no separate streams)
-    r = try_download(get_base_opts(['tv_embedded', 'mweb'], use_cookies=True, combined_only=True), "T1[tv_embedded+combined]")
+    # Format strings
+    if max_res == "720p":
+        fmt_hq = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
+    elif max_res == "1080p":
+        fmt_hq = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
+    else:
+        fmt_hq = 'bestvideo+bestaudio/best'
+    # Safe itags: 22=720p mp4, 18=360p mp4 - always available as combined stream
+    fmt_safe = '22/18/best'
+
+    # T1: web_creator = YouTube Studio API - bypasses datacenter bot blocks, full format access
+    r = try_dl("T1[web_creator+HQ]", fmt_hq, ['web_creator'], cookies=True)
     if r: return r
 
-    # TIER 2: tv_embedded with split format attempt (some videos have separate streams)
-    r = try_download(get_base_opts(['tv_embedded', 'mweb'], use_cookies=True, combined_only=False), "T2[tv_embedded+split]")
+    # T2: web_creator + safe format (if HQ merge fails)
+    r = try_dl("T2[web_creator+safe]", fmt_safe, ['web_creator'], cookies=True)
     if r: return r
 
-    # TIER 3: mweb only with cookies + split format
-    r = try_download(get_base_opts(['mweb'], use_cookies=True), "T3[mweb+cookies]")
+    # T3: tv_embedded + itag 22/18 (no sign-in required, always available)
+    r = try_dl("T3[tv_embedded+itag]", fmt_safe, ['tv_embedded'], cookies=True)
     if r: return r
 
-    # TIER 4: Android app UA + android client
-    android_ua = 'com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip'
-    r = try_download(get_base_opts(['android', 'mweb'], use_cookies=True, ua=android_ua), "T4[android+cookies]")
+    # T4: tv_embedded clean session (no cookies - avoid mismatch)
+    r = try_dl("T4[tv_embedded+clean]", fmt_safe, ['tv_embedded'], cookies=False)
     if r: return r
 
-    # TIER 5: tv_embedded no cookies + combined format (clean session)
-    r = try_download(get_base_opts(['tv_embedded'], use_cookies=False, combined_only=True), "T5[tv_embedded-clean]")
+    # T5: android_vr (Daydream/VR client - minimal bot checks)
+    r = try_dl("T5[android_vr]", fmt_hq, ['android_vr', 'tv_embedded'], cookies=True)
     if r: return r
 
-    # TIER 6: iOS client last resort
-    ios_ua = 'com.google.ios.youtube/19.29.1 (iPhone14,3; U; CPU iOS 17_5_1 like Mac OS X; en_US)'
-    r = try_download(get_base_opts(['ios'], use_cookies=False, ua=ios_ua, combined_only=True), "T6[ios-combined]")
+    # T6: android + app UA
+    r = try_dl("T6[android]", fmt_hq, ['android'],
+               cookies=True, ua='com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip')
+    if r: return r
+
+    # T7: mweb (lighter bot detection)
+    r = try_dl("T7[mweb]", fmt_safe, ['mweb'], cookies=True)
     if r: return r
 
     if user_id:
-        db.log_activity(user_id, "ERROR", "ALL 6 TIERS FAILED - check Activity Logs for details")
-    return False, "All download methods failed - check activity logs", "", ""
-
+        db.log_activity(user_id, "ERROR", "ALL 7 TIERS FAILED. Server IP blocked by YouTube.")
+    return False, "YouTube blocked all download methods on this server IP", "", ""
 
 def upload_to_fb_resumable(file_path, title, desc, page_id, token, user_id=None):
     """Uploads large/long 4K videos using Facebook Graph API Resumable Upload protocol."""
