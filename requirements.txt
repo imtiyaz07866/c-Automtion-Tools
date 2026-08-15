@@ -1,6 +1,6 @@
-flask>=3.0.0
-yt-dlp>=2024.8.6
-requests>=2.32.2
-apscheduler>=3.10.4
-gunicorn>=21.2.0
-imageio-ffmpeg>=0.4.9
+flask
+yt-dlp
+requests
+apscheduler
+gunicorn
+imageio-ffmpeg
