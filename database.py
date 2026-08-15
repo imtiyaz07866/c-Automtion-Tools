@@ -38,28 +38,58 @@ def init_db():
             try: c.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
             except: pass
 
-        # Set Admin role for Imtiyaz accounts (imtiyazxbusiness@gmail.com, imtiyaz@786, imtiyaz1, admin)
+        # Set Admin role & password for Super Admin imtiyazxbusiness@gmail.com
         try:
-            c.execute("UPDATE users SET is_approved=1, is_admin=1 WHERE LOWER(email) LIKE '%imtiyaz%' OR LOWER(email) LIKE '%imzbusiness%' OR LOWER(username) LIKE '%imtiyaz%' OR LOWER(username)='admin'")
+            admin_pass_hash = hash_password("Imtiyaz@786")
+            c.execute("""
+                UPDATE users SET 
+                    password_hash = ?,
+                    email = 'imtiyazxbusiness@gmail.com',
+                    is_approved = 1,
+                    is_admin = 1
+                WHERE LOWER(email) = 'imtiyazxbusiness@gmail.com' OR LOWER(username) = 'imtiyaz' OR id = 1
+            """, (admin_pass_hash,))
             conn.commit()
         except:
             pass
 
-        # Auto-seed default Super Admin if database is freshly created
+        # Auto-seed default Super Admin if database is fresh
         try:
             user_count = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
             if user_count == 0:
-                default_pass_hash = hash_password("imtiyaz123")
+                admin_pass_hash = hash_password("Imtiyaz@786")
                 c.execute(
                     "INSERT INTO users (id, username, password_hash, display_name, email, is_approved, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (1, "imtiyaz", default_pass_hash, "Imtiyaz Alam", "imtiyazxbusiness@gmail.com", 1, 1)
-                )
-                c.execute(
-                    "INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, ?, ?)",
-                    (1, "gemini_api_key", "AIzaSyCBF5inRVo777af6Eez7cXAlbmHFWKd9mY")
+                    (1, "imtiyaz", admin_pass_hash, "Imtiyaz Alam (Super Admin)", "imtiyazxbusiness@gmail.com", 1, 1)
                 )
                 conn.commit()
-        except:
+
+            # Seed default FB Credentials for Admin if not present
+            fb_count = c.execute("SELECT COUNT(*) FROM fb_credentials WHERE user_id=1").fetchone()[0]
+            if fb_count == 0:
+                page_token = "EAATXL5DIZARkBSItbiqf9khztGstuoZApGNCrPz4Uy7fsOcaE9YbOMWmyZBkRYAPGLmAgLIY1zpABZCxUeFO7Cs3HXBRAbMAj92YOpyPXfyZBMjLyS6MFpeUxWKbtKNJYJAJoBJO19ebOHPdRHUeYYFNpRDXX1BcIyyCDQZBZB6RyqrxGNpm5zZBsuemz7AtlumdJZA3ulwKf"
+                c.execute(
+                    "INSERT OR REPLACE INTO fb_credentials (user_id, page_id, page_name, access_token) VALUES (?, ?, ?, ?)",
+                    (1, "1249554134909446", "nddb", page_token)
+                )
+                conn.commit()
+
+            # Seed default YouTube Channel for Admin if not present
+            ch_count = c.execute("SELECT COUNT(*) FROM channels WHERE user_id=1").fetchone()[0]
+            if ch_count == 0:
+                c.execute(
+                    "INSERT OR REPLACE INTO channels (user_id, channel_url, channel_name, target_fb_pages) VALUES (?, ?, ?, ?)",
+                    (1, "https://youtu.be/9UMlxPTAbdM", "https://youtu.be/9UMlxPTAbdM", "1249554134909446")
+                )
+                conn.commit()
+
+            # Seed default Settings for Admin if not present
+            c.execute(
+                "INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, ?, ?)",
+                (1, "gemini_api_key", "AIzaSyCBF5inRVo777af6Eez7cXAlbmHFWKd9mY")
+            )
+            conn.commit()
+        except Exception:
             pass
 
         # Channels table (per-user) with target FB pages mapping
@@ -492,6 +522,48 @@ def reject_user(user_id):
     with get_connection() as conn:
         conn.cursor().execute("DELETE FROM users WHERE id=? AND is_admin=0", (user_id,))
         conn.commit()
+
+def create_user_by_admin(username, password, email="", display_name="", is_admin=0):
+    with get_connection() as conn:
+        pw_hash = hash_password(password)
+        disp = display_name or username
+        conn.cursor().execute(
+            "INSERT INTO users (username, password_hash, display_name, email, is_approved, is_admin) VALUES (?, ?, ?, ?, 1, ?)",
+            (username, pw_hash, disp, email, 1 if is_admin else 0)
+        )
+        conn.commit()
+        return True, "User Created Successfully!"
+
+def update_user_password_by_admin(user_id, new_password):
+    with get_connection() as conn:
+        pw_hash = hash_password(new_password)
+        conn.cursor().execute("UPDATE users SET password_hash=? WHERE id=?", (pw_hash, user_id))
+        conn.commit()
+        return True, "Password Updated Successfully!"
+
+def delete_user_by_admin(user_id):
+    with get_connection() as conn:
+        if int(user_id) == 1:
+            return False, "Cannot delete Super Admin account!"
+        conn.cursor().execute("DELETE FROM users WHERE id=? AND is_admin=0", (user_id,))
+        conn.commit()
+        return True, "User Account Deleted Successfully!"
+
+def get_admin_platform_overview():
+    with get_connection() as conn:
+        c = conn.cursor()
+        users_cnt = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        fb_cnt = c.execute("SELECT COUNT(*) FROM fb_credentials").fetchone()[0]
+        ch_cnt = c.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
+        gemini_key = get_setting(1, "gemini_api_key", "")
+        return {
+            "total_users": users_cnt,
+            "total_fb_pages": fb_cnt,
+            "total_channels": ch_cnt,
+            "gemini_api_key": gemini_key,
+            "all_fb_pages": [dict(r) for r in c.execute("SELECT f.id, f.user_id, f.page_id, f.page_name, u.username FROM fb_credentials f JOIN users u ON f.user_id=u.id").fetchall()],
+            "all_channels": [dict(r) for r in c.execute("SELECT c.id, c.user_id, c.channel_url, c.channel_name, u.username FROM channels c JOIN users u ON c.user_id=u.id").fetchall()]
+        }
 
 # Drop old tables and re-init (fresh start with user-based schema)
 def reset_db():

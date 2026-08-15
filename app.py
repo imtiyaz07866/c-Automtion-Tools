@@ -418,14 +418,19 @@ def api_cookies():
             except: pass
         return jsonify({"success": True, "message": "cookies.txt deleted!"})
 
-# ===== Admin User Approval API =====
+# ===== Admin User Management API =====
 @app.route("/api/admin/users", methods=["GET"])
-@login_required
+@admin_required
 def api_admin_get_users():
     return jsonify(db.get_all_users())
 
+@app.route("/api/admin/overview", methods=["GET"])
+@admin_required
+def api_admin_overview():
+    return jsonify(db.get_admin_platform_overview())
+
 @app.route("/api/admin/approve-user", methods=["POST"])
-@login_required
+@admin_required
 def api_admin_approve_user():
     target_id = request.json.get("user_id")
     if target_id:
@@ -434,13 +439,55 @@ def api_admin_approve_user():
     return jsonify({"success": False, "message": "Invalid user ID"}), 400
 
 @app.route("/api/admin/reject-user", methods=["POST"])
-@login_required
+@admin_required
 def api_admin_reject_user():
     target_id = request.json.get("user_id")
     if target_id:
         db.reject_user(target_id)
         return jsonify({"success": True, "message": "User Removed!"})
     return jsonify({"success": False, "message": "Invalid user ID"}), 400
+
+@app.route("/api/admin/create-user", methods=["POST"])
+@admin_required
+def api_admin_create_user():
+    d = request.json or {}
+    un = d.get("username", "").strip()
+    pw = d.get("password", "").strip()
+    em = d.get("email", "").strip()
+    disp = d.get("display_name", "").strip()
+    is_adm = d.get("is_admin", 0)
+
+    if not un or not pw:
+        return jsonify({"success": False, "message": "Username and Password are required!"}), 400
+
+    try:
+        ok, msg = db.create_user_by_admin(un, pw, em, disp, is_adm)
+        return jsonify({"success": ok, "message": msg})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+@app.route("/api/admin/reset-password", methods=["POST"])
+@admin_required
+def api_admin_reset_password():
+    d = request.json or {}
+    uid = d.get("user_id")
+    new_pw = d.get("new_password", "").strip()
+    if not uid or not new_pw:
+        return jsonify({"success": False, "message": "User ID and New Password are required!"}), 400
+
+    ok, msg = db.update_user_password_by_admin(uid, new_pw)
+    return jsonify({"success": ok, "message": msg})
+
+@app.route("/api/admin/delete-user", methods=["POST"])
+@admin_required
+def api_admin_delete_user():
+    d = request.json or {}
+    uid = d.get("user_id")
+    if not uid:
+        return jsonify({"success": False, "message": "User ID is required!"}), 400
+
+    ok, msg = db.delete_user_by_admin(uid)
+    return jsonify({"success": ok, "message": msg})
 
 @app.route("/api/settings", methods=["POST"])
 @login_required
