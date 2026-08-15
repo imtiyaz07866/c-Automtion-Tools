@@ -1,20 +1,9 @@
 services:
   - type: web
-    name: youtube-facebook-autoposter
+    name: auto-poster-b2ar
     env: docker
     plan: free
-    region: oregon
-    dockerContext: .
-    dockerfilePath: Dockerfile
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /login
     autoDeploy: true
-    envVars:
-      - key: FB_PAGE_ID
-        sync: false
-      - key: FB_ACCESS_TOKEN
-        sync: false
-      - key: YT_CHANNELS
-        sync: false
-      - key: CHECK_INTERVAL_HOURS
-        value: "1"
-      - key: PORT
-        value: "5000"
