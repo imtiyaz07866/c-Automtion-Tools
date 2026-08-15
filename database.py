@@ -16,7 +16,7 @@ def init_db():
     with get_connection() as conn:
         c = conn.cursor()
 
-        # Users table (supports Username/Password & Google Sign-In with Admin Approval)
+        # 1. Users table
         c.execute("""CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -30,6 +30,67 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )""")
         
+        # 2. Channels table
+        c.execute("""CREATE TABLE IF NOT EXISTS channels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            channel_url TEXT NOT NULL,
+            channel_name TEXT,
+            target_fb_pages TEXT DEFAULT 'all',
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1,
+            UNIQUE(user_id, channel_url),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""")
+
+        # 3. Facebook Credentials
+        c.execute("""CREATE TABLE IF NOT EXISTS fb_credentials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            page_id TEXT NOT NULL,
+            page_name TEXT,
+            access_token TEXT NOT NULL,
+            backup_token TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, page_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""")
+
+        # 4. Upload History
+        c.execute("""CREATE TABLE IF NOT EXISTS upload_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            yt_video_id TEXT NOT NULL,
+            yt_video_title TEXT,
+            channel_url TEXT,
+            fb_page_id TEXT NOT NULL,
+            fb_post_id TEXT,
+            status TEXT DEFAULT 'pending',
+            error_message TEXT,
+            processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, yt_video_id, fb_page_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""")
+
+        # 5. Settings
+        c.execute("""CREATE TABLE IF NOT EXISTS settings (
+            user_id INTEGER NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT,
+            PRIMARY KEY(user_id, key),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""")
+
+        # 6. Activity Logs
+        c.execute("""CREATE TABLE IF NOT EXISTS activity_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            level TEXT DEFAULT 'INFO',
+            message TEXT NOT NULL,
+            log_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )""")
+
         # Migrations for existing DB
         for col, col_type in [
             ("email", "TEXT"), ("google_id", "TEXT"), ("avatar_url", "TEXT"),
@@ -37,6 +98,12 @@ def init_db():
         ]:
             try: c.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
             except: pass
+
+        try: c.execute("ALTER TABLE channels ADD COLUMN target_fb_pages TEXT DEFAULT 'all'")
+        except: pass
+
+        try: c.execute("ALTER TABLE fb_credentials ADD COLUMN backup_token TEXT")
+        except: pass
 
         # Set Admin role & password for Super Admin imtiyazxbusiness@gmail.com
         try:
