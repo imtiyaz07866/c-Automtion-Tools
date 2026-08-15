@@ -13,11 +13,30 @@ def cleanup():
         except: pass
 
 COOKIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+COOKIES_CLEAN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_downloads", "cookies_clean.txt")
 
 def get_cookies_file():
-    if os.path.exists(COOKIES_FILE) and os.path.getsize(COOKIES_FILE) > 5:
-        return COOKIES_FILE
-    return None
+    """Return path to a sanitized cookies.txt file compatible with yt-dlp on Linux."""
+    if not os.path.exists(COOKIES_FILE) or os.path.getsize(COOKIES_FILE) < 5:
+        return None
+    try:
+        # Read original and sanitize: strip BOM, convert CRLF→LF, remove blank cookie lines
+        with open(COOKIES_FILE, 'r', encoding='utf-8-sig') as f:
+            raw = f.read()
+        # Normalize line endings to LF
+        clean = raw.replace('\r\n', '\n').replace('\r', '\n')
+        # Ensure header is present
+        if not clean.startswith('# Netscape HTTP Cookie File') and not clean.startswith('# HTTP Cookie File'):
+            clean = '# Netscape HTTP Cookie File\n# This is a generated file!\n\n' + clean
+        # Write sanitized version
+        os.makedirs(os.path.dirname(COOKIES_CLEAN), exist_ok=True)
+        with open(COOKIES_CLEAN, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(clean)
+        return COOKIES_CLEAN
+    except Exception:
+        if os.path.exists(COOKIES_FILE):
+            return COOKIES_FILE
+        return None
 
 def fetch_latest_videos(channel_url, max_results=3):
     opts = {
@@ -88,6 +107,17 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
         fmt = 'bestvideo+bestaudio/best'
 
     cookie_path = get_cookies_file()
+
+    # Diagnostic logging for Render Cloud debugging
+    if user_id:
+        ytdlp_ver = getattr(yt_dlp, 'version', {})
+        ver_str = getattr(ytdlp_ver, '__version__', 'unknown') if hasattr(ytdlp_ver, '__version__') else str(ytdlp_ver)
+        try:
+            ver_str = yt_dlp.version.__version__
+        except:
+            ver_str = 'unknown'
+        cookie_size = os.path.getsize(cookie_path) if cookie_path and os.path.exists(cookie_path) else 0
+        db.log_activity(user_id, "INFO", f"🔍 Download debug: yt-dlp={ver_str}, cookies={cookie_path}({cookie_size}B), ffmpeg={'YES' if ff_path else 'NO'}, url={video_url}")
 
     def get_base_opts():
         o = {

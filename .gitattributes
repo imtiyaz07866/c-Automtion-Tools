@@ -1,0 +1,2 @@
+# Force LF line endings for cookies.txt on all platforms (critical for yt-dlp on Linux)
+cookies.txt text eol=lf
