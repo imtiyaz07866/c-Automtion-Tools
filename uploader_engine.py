@@ -192,49 +192,49 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
         fmt_hq = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
     else:
         fmt_hq = 'bestvideo+bestaudio/best'
-    fmt_safe = 'best'   # Single combined stream — always available on any video
+    fmt_safe = 'best'
 
-    # T1: web client + fresh cookies (standard login session, best format access)
-    r = try_dl("T1[web+cookies+HQ]", fmt_hq, ['web'], cookies=True)
+    # T1: android_vr + cookies + HQ (Daydream VR client - 31 formats, bypasses PO token / SABR)
+    r = try_dl("T1[android_vr+HQ]", fmt_hq, ['android_vr'], cookies=True)
     if r: return r
 
-    # T2: web + cookies + safe format (single stream, no merge needed)
-    r = try_dl("T2[web+cookies+safe]", fmt_safe, ['web'], cookies=True)
+    # T2: android_vr + cookies + safe
+    r = try_dl("T2[android_vr+safe]", fmt_safe, ['android_vr'], cookies=True)
     if r: return r
 
-    # T3: web_creator (YouTube Studio API) + HQ
-    r = try_dl("T3[web_creator+HQ]", fmt_hq, ['web_creator'], cookies=True)
-    if r: return r
-
-    # T4: android + cookies + HQ (app client, very reliable)
-    r = try_dl("T4[android+cookies+HQ]", fmt_hq, ['android'], cookies=True,
+    # T3: android + cookies + HQ (Android app client)
+    r = try_dl("T3[android+HQ]", fmt_hq, ['android'], cookies=True,
                ua='com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip')
     if r: return r
 
-    # T5: android + cookies + safe
-    r = try_dl("T5[android+cookies+safe]", fmt_safe, ['android'], cookies=True,
+    # T4: android + cookies + safe
+    r = try_dl("T4[android+safe]", fmt_safe, ['android'], cookies=True,
                ua='com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip')
     if r: return r
 
-    # T6: tv_embedded + IA8= (embed bypass param) + cookies
-    r = try_dl("T6[tv_embed+IA8+ck]", fmt_safe, ['tv_embedded'],
+    # T5: web_creator (YouTube Studio API)
+    r = try_dl("T5[web_creator+HQ]", fmt_hq, ['web_creator'], cookies=True)
+    if r: return r
+
+    # T6: web client + fresh cookies
+    r = try_dl("T6[web+cookies+HQ]", fmt_hq, ['web'], cookies=True)
+    if r: return r
+
+    # T7: tv_embedded + IA8= (embed bypass param) + cookies
+    r = try_dl("T7[tv_embed+IA8+ck]", fmt_safe, ['tv_embedded'],
                cookies=True, player_params='IA8=')
     if r: return r
 
-    # T7: tv_embedded + IA8= clean session (no cookies)
-    r = try_dl("T7[tv_embed+IA8+clean]", fmt_safe, ['tv_embedded'],
+    # T8: tv_embedded + IA8= clean session (no cookies)
+    r = try_dl("T8[tv_embed+IA8+clean]", fmt_safe, ['tv_embedded'],
                cookies=False, player_params='IA8=')
     if r: return r
 
-    # T8: android_vr (Daydream - minimal bot checks)
-    r = try_dl("T8[android_vr]", fmt_safe, ['android_vr'], cookies=True)
-    if r: return r
-
-    # T9: mweb last resort
+    # T9: mweb fallback
     r = try_dl("T9[mweb]", fmt_safe, ['mweb'], cookies=True)
     if r: return r
 
-    # T10: absolute last resort — no client override, just cookies + best format
+    # T10: default yt-dlp fallback
     r = try_dl("T10[default+best]", 'best', None, cookies=True)
     if r: return r
 
