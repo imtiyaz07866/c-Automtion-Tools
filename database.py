@@ -416,11 +416,15 @@ def get_upload_counts(user_id):
         f = conn.cursor().execute("SELECT COUNT(id) FROM upload_history WHERE user_id=? AND status='failed'", (user_id,)).fetchone()
         return (s[0] if s else 0), (f[0] if f else 0)
 
-# ===== Settings (per-user) =====
+# ===== Settings (per-user with Global Sharing) =====
 def get_setting(user_id, key, default=None):
     with get_connection() as conn:
         r = conn.cursor().execute("SELECT value FROM settings WHERE user_id=? AND key=?", (user_id, key)).fetchone()
-        return r['value'] if r else default
+        val = r['value'] if r else None
+        if (val is None or str(val).strip() == "") and key in ["gemini_api_key", "allow_public_registration"]:
+            admin_r = conn.cursor().execute("SELECT value FROM settings WHERE user_id=1 AND key=?", (key,)).fetchone()
+            val = admin_r['value'] if admin_r else None
+        return val if val is not None else default
 
 def set_setting(user_id, key, val):
     with get_connection() as conn:
@@ -428,6 +432,13 @@ def set_setting(user_id, key, val):
             "INSERT INTO settings (user_id, key, value) VALUES (?,?,?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value",
             (user_id, key, str(val))
         )
+        if key == "gemini_api_key" and str(val).strip() != "":
+            # Auto-apply Gemini API key across all accounts
+            conn.cursor().execute("UPDATE settings SET value=? WHERE key='gemini_api_key'", (str(val),))
+            conn.cursor().execute("""
+                INSERT OR IGNORE INTO settings (user_id, key, value)
+                SELECT id, 'gemini_api_key', ? FROM users
+            """, (str(val),))
         conn.commit()
 
 def request_stop_sync(user_id):
