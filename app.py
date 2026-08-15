@@ -379,9 +379,38 @@ def api_cookies():
         content = d.get("content", "").strip()
         if not content:
             return jsonify({"success": False, "message": "Cookie content cannot be empty!"}), 400
+        
+        # Auto-convert JSON format cookies to Netscape format
+        if content.startswith("[") or content.startswith("{"):
+            try:
+                import json
+                data = json.loads(content)
+                if isinstance(data, dict):
+                    data = data.get('cookies', [data])
+                if isinstance(data, list):
+                    lines = [
+                        "# Netscape HTTP Cookie File",
+                        "# https://curl.se/docs/http-cookies.html",
+                        "# Generated automatically by AutoPoster SaaS\n"
+                    ]
+                    for item in data:
+                        if not isinstance(item, dict): continue
+                        domain = item.get('domain', '.youtube.com')
+                        flag = "TRUE" if domain.startswith('.') or item.get('hostOnly') is False else "FALSE"
+                        path = item.get('path', '/')
+                        secure = "TRUE" if item.get('secure') else "FALSE"
+                        expiry = int(item.get('expirationDate') or item.get('expiry') or 2147483647)
+                        name = item.get('name', '')
+                        val = item.get('value', '')
+                        if name:
+                            lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiry}\t{name}\t{val}")
+                    content = "\n".join(lines)
+            except Exception:
+                pass
+
         with open(cookie_file, "w", encoding="utf-8") as f:
             f.write(content)
-        return jsonify({"success": True, "message": "🍪 cookies.txt saved successfully! YouTube anti-bot security active."})
+        return jsonify({"success": True, "message": "🍪 cookies.txt saved & converted to Netscape format successfully! Anti-bot security active."})
     
     elif request.method == "DELETE":
         if os.path.exists(cookie_file):
