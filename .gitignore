@@ -6,3 +6,9 @@ __pycache__/
 dist/
 build/
 *.spec
+
+# --- SECRET / SENSITIVE FILES — never commit these ---
+cookies.txt
+*.cookies.txt
+secrets/
+.secrets

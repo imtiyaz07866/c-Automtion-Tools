@@ -12,31 +12,39 @@ def cleanup():
         try: os.remove(f)
         except: pass
 
-COOKIES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
-COOKIES_CLEAN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_downloads", "cookies_clean.txt")
+# Cookie file path: read from env var (Render Secret Files), then /etc/secrets, then local fallback.
+# NEVER commit cookies.txt to git — upload via Render Dashboard -> Environment -> Secret Files.
+_COOKIES_CANDIDATES = [
+    os.environ.get('COOKIES_FILE_PATH', ''),
+    '/etc/secrets/cookies.txt',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.txt'),
+]
+COOKIES_FILE = next((p for p in _COOKIES_CANDIDATES if p and os.path.exists(p)), '')
+COOKIES_CLEAN = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_downloads', 'cookies_clean.txt')
 
 def get_cookies_file():
-    """Return path to a sanitized cookies.txt file compatible with yt-dlp on Linux."""
-    if not os.path.exists(COOKIES_FILE) or os.path.getsize(COOKIES_FILE) < 5:
+    """Return path to a sanitized (LF-only) cookies.txt for yt-dlp on Linux.
+
+    Reads from COOKIES_FILE_PATH env var (Render Secret Files), falling back to
+    /etc/secrets/cookies.txt and finally a local cookies.txt.  The file is
+    NEVER read from git — see docs/troubleshooting.md.
+    """
+    src = next((p for p in _COOKIES_CANDIDATES if p and os.path.exists(p) and os.path.getsize(p) > 5), None)
+    if not src:
         return None
     try:
-        # Read original and sanitize: strip BOM, convert CRLF→LF, remove blank cookie lines
-        with open(COOKIES_FILE, 'r', encoding='utf-8-sig') as f:
+        with open(src, 'r', encoding='utf-8-sig') as f:
             raw = f.read()
-        # Normalize line endings to LF
+        # Normalise line endings to LF (Windows cookies break yt-dlp on Linux)
         clean = raw.replace('\r\n', '\n').replace('\r', '\n')
-        # Ensure header is present
         if not clean.startswith('# Netscape HTTP Cookie File') and not clean.startswith('# HTTP Cookie File'):
             clean = '# Netscape HTTP Cookie File\n# This is a generated file!\n\n' + clean
-        # Write sanitized version
         os.makedirs(os.path.dirname(COOKIES_CLEAN), exist_ok=True)
         with open(COOKIES_CLEAN, 'w', encoding='utf-8', newline='\n') as f:
             f.write(clean)
         return COOKIES_CLEAN
     except Exception:
-        if os.path.exists(COOKIES_FILE):
-            return COOKIES_FILE
-        return None
+        return src
 
 def fetch_latest_videos(channel_url, max_results=3):
     opts = {
@@ -133,6 +141,12 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             'nocheckcertificate': True,
             'geo_bypass': True,
             'extractor_args': {'youtube': ext_args},
+            # Slow down requests to avoid rate-based bot detection
+            'sleep_interval': 3,
+            'max_sleep_interval': 8,
+            # Retry transient failures before giving up
+            'retries': 3,
+            'fragment_retries': 3,
         }
         if ua: o['user_agent'] = ua
         if cookies and cookie_path: o['cookiefile'] = cookie_path
@@ -159,7 +173,15 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
                     if user_id: db.log_activity(user_id, "INFO", f"SUCCESS {name}: {os.path.basename(f)}")
                     return True, f, info.get('title', ''), info.get('description', '')
         except Exception as e:
-            if user_id: db.log_activity(user_id, "WARNING", f"{name} FAIL: {str(e)[:250]}")
+            err_str = str(e)
+            if user_id:
+                # Detect YouTube bot-detection specifically for actionable guidance
+                if any(kw in err_str for kw in ('Sign in to confirm', 'not a bot', 'bot detection', 'confirm your age')):
+                    db.log_activity(user_id, "WARNING",
+                        f"{name}: YouTube bot-detection triggered — cookies may be expired or IP flagged. "
+                        f"See docs/troubleshooting.md to re-export cookies and upload to Render Secret Files.")
+                else:
+                    db.log_activity(user_id, "WARNING", f"{name} FAIL: {err_str[:250]}")
         return None
 
     # Format strings
