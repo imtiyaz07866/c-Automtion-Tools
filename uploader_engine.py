@@ -182,7 +182,7 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
                         f"{name}: YouTube bot-detection triggered — cookies may be expired or IP flagged. "
                         f"See docs/troubleshooting.md to re-export cookies and upload to Render Secret Files.")
                 else:
-                    db.log_activity(user_id, "WARNING", f"{name} FAIL: {err_str[:250]}")
+                    db.log_activity(user_id, "WARNING", f"{name} FAIL: {err_str[:1500]}")
         return None
 
     # Format strings — HQ uses best quality with merge, safe uses 'best' (single stream, always available)

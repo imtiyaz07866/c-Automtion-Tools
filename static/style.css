@@ -360,6 +360,13 @@ td {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+td.log-msg-cell {
+    max-width: 600px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: visible;
+    text-overflow: clip;
+}
 tr { transition: background var(--transition); }
 tr:hover td { background: rgba(99, 102, 241, 0.06); }
 

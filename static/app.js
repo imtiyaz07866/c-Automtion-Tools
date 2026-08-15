@@ -510,7 +510,7 @@ async function loadLogs() {
         html += `<tr>
             <td>${formatTime(r.log_time)}</td>
             <td><span class="badge ${cls}">${esc(lvl)}</span></td>
-            <td>${esc(r.message || '')}</td>
+            <td class="log-msg-cell">${esc(r.message || '')}</td>
         </tr>`;
     });
     html += '</tbody></table>';
