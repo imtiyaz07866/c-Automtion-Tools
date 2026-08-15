@@ -79,37 +79,42 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
     out = os.path.join(TEMP_DIR, f"{video_id}.%(ext)s")
     ff_path = get_ffmpeg_path()
     
-    # Absolute Best Ultra HD 4K (2160p / 1440p / 1080p 60fps) Stream Selection
+    # Format selection based on max_res
     if max_res == "1080p":
         fmt = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best'
     elif max_res == "720p":
         fmt = 'bestvideo[height<=720]+bestaudio/bestvideo+bestaudio/best'
     else:
-        # Default: True 4K Ultra HD (2160p) Highest Quality Stream
         fmt = 'bestvideo+bestaudio/best'
 
-    opts = {
-        'format': fmt,
-        'outtmpl': out,
-        'quiet': True,
-        'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'web', 'mweb']}}
-    }
     cookie_path = get_cookies_file()
+
+    def get_base_opts():
+        o = {
+            'format': fmt,
+            'outtmpl': out,
+            'quiet': True,
+            'no_warnings': True,
+            'nocheckcertificate': True,
+            'geo_bypass': True
+        }
+        if user_id:
+            o['progress_hooks'] = [make_progress_hook(user_id)]
+            db.set_setting(user_id, "active_progress", "⬇️ Downloading: 0.1%...")
+        if ff_path:
+            o['ffmpeg_location'] = ff_path
+            o['merge_output_format'] = 'mp4'
+        return o
+
+    # TIER 1: With Cookies (if available) + Standard Android/iOS Mobile API
+    opts_t1 = get_base_opts()
+    opts_t1['user_agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    opts_t1['extractor_args'] = {'youtube': {'player_client': ['android', 'ios', 'web']}}
     if cookie_path:
-        opts['cookiefile'] = cookie_path
-
-    if user_id:
-        opts['progress_hooks'] = [make_progress_hook(user_id)]
-        db.set_setting(user_id, "active_progress", "⬇️ Downloading: 0.1%...")
-
-    if ff_path:
-        opts['ffmpeg_location'] = ff_path
-        opts['merge_output_format'] = 'mp4'
+        opts_t1['cookiefile'] = cookie_path
 
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        with yt_dlp.YoutubeDL(opts_t1) as ydl:
             info = ydl.extract_info(video_url, download=True)
             fn = ydl.prepare_filename(info)
             base, _ = os.path.splitext(fn)
@@ -118,61 +123,63 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
             m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
             if m: return True, m[0], info.get('title',''), info.get('description','')
-    except Exception as e:
-        opts_fallback = {
-            'format': 'bestvideo+bestaudio/best',
-            'outtmpl': out,
-            'quiet': True,
-            'no_warnings': True,
-            'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-            'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'mweb']}}
-        }
-        if cookie_path:
-            opts_fallback['cookiefile'] = cookie_path
-        if user_id:
-            opts_fallback['progress_hooks'] = [make_progress_hook(user_id)]
-        if ff_path:
-            opts_fallback['ffmpeg_location'] = ff_path
-            opts_fallback['merge_output_format'] = 'mp4'
-        try:
-            with yt_dlp.YoutubeDL(opts_fallback) as ydl:
-                info = ydl.extract_info(video_url, download=True)
-                fn = ydl.prepare_filename(info)
-                base, _ = os.path.splitext(fn)
-                mp4 = f"{base}.mp4"
-                if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
-                if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
-                m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
-                if m: return True, m[0], info.get('title',''), info.get('description','')
-        except Exception as err2:
-            # Tier 3 Fallback: Embedded TV/Web Client Bypass (bypasses bot challenges 100% without sign-in)
-            opts_embedded = {
-                'format': 'bestvideo+bestaudio/best',
-                'outtmpl': out,
-                'quiet': True,
-                'no_warnings': True,
-                'user_agent': 'Mozilla/5.0 (SmartTV; SmartTV; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'extractor_args': {'youtube': {'player_client': ['tv_embedded', 'web_embedded', 'android_creator', 'ios']}}
-            }
-            if user_id:
-                opts_embedded['progress_hooks'] = [make_progress_hook(user_id)]
-            if ff_path:
-                opts_embedded['ffmpeg_location'] = ff_path
-                opts_embedded['merge_output_format'] = 'mp4'
-            try:
-                with yt_dlp.YoutubeDL(opts_embedded) as ydl:
-                    info = ydl.extract_info(video_url, download=True)
-                    fn = ydl.prepare_filename(info)
-                    base, _ = os.path.splitext(fn)
-                    mp4 = f"{base}.mp4"
-                    if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
-                    if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
-                    m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
-                    if m: return True, m[0], info.get('title',''), info.get('description','')
-            except Exception as err3:
-                return False, str(err3), "", ""
+    except Exception as e1:
+        pass
 
-    return False, "File not found", "", ""
+    # TIER 2: Clean Creator API (WITHOUT cookies in case cookies.txt is expired/invalid)
+    opts_t2 = get_base_opts()
+    opts_t2['user_agent'] = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
+    opts_t2['extractor_args'] = {'youtube': {'player_client': ['android_creator', 'ios', 'mweb']}}
+
+    try:
+        with yt_dlp.YoutubeDL(opts_t2) as ydl:
+            info = ydl.extract_info(video_url, download=True)
+            fn = ydl.prepare_filename(info)
+            base, _ = os.path.splitext(fn)
+            mp4 = f"{base}.mp4"
+            if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
+            if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
+            m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
+            if m: return True, m[0], info.get('title',''), info.get('description','')
+    except Exception as e2:
+        pass
+
+    # TIER 3: Embedded TV / Web Bypass (Bypasses Sign-In challenges 100% without cookies)
+    opts_t3 = get_base_opts()
+    opts_t3['user_agent'] = 'Mozilla/5.0 (SmartTV; SmartTV; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    opts_t3['extractor_args'] = {'youtube': {'player_client': ['tv_embedded', 'web_embedded']}}
+
+    try:
+        with yt_dlp.YoutubeDL(opts_t3) as ydl:
+            info = ydl.extract_info(video_url, download=True)
+            fn = ydl.prepare_filename(info)
+            base, _ = os.path.splitext(fn)
+            mp4 = f"{base}.mp4"
+            if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
+            if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
+            m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
+            if m: return True, m[0], info.get('title',''), info.get('description','')
+    except Exception as e3:
+        pass
+
+    # TIER 4: iOS Pure Native API
+    opts_t4 = get_base_opts()
+    opts_t4['extractor_args'] = {'youtube': {'player_client': ['ios']}}
+
+    try:
+        with yt_dlp.YoutubeDL(opts_t4) as ydl:
+            info = ydl.extract_info(video_url, download=True)
+            fn = ydl.prepare_filename(info)
+            base, _ = os.path.splitext(fn)
+            mp4 = f"{base}.mp4"
+            if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
+            if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
+            m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
+            if m: return True, m[0], info.get('title',''), info.get('description','')
+    except Exception as e4:
+        return False, str(e4), "", ""
+
+    return False, "File not found after download", "", ""
 
 def upload_to_fb_resumable(file_path, title, desc, page_id, token, user_id=None):
     """Uploads large/long 4K videos using Facebook Graph API Resumable Upload protocol."""
