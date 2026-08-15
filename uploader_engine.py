@@ -106,10 +106,9 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             o['merge_output_format'] = 'mp4'
         return o
 
-    # TIER 1: Pure Android App API (With Cookies if available)
+    # TIER 1: Cookies + Web Creator Client (YouTube Studio API - bypasses datacenter bot checks)
     opts_t1 = get_base_opts()
-    opts_t1['user_agent'] = 'com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip'
-    opts_t1['extractor_args'] = {'youtube': {'player_client': ['android', 'mweb']}}
+    opts_t1['extractor_args'] = {'youtube': {'player_client': ['web_creator', 'mweb']}}
     if cookie_path:
         opts_t1['cookiefile'] = cookie_path
 
@@ -124,30 +123,33 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
             if m: return True, m[0], info.get('title',''), info.get('description','')
     except Exception as e1:
-        pass
+        if user_id:
+            db.log_activity(user_id, "WARNING", f"TIER 1 (web_creator+cookies) failed: {e1}")
 
-    # TIER 2: Pure Android App API (WITHOUT cookies in case cookies.txt is expired/invalid)
-    opts_t2 = get_base_opts()
-    opts_t2['user_agent'] = 'com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip'
-    opts_t2['extractor_args'] = {'youtube': {'player_client': ['android', 'mweb']}}
+    # TIER 2: Cookies + Default Web Client (standard fallback with login session)
+    if cookie_path:
+        opts_t2 = get_base_opts()
+        opts_t2['cookiefile'] = cookie_path
+        opts_t2['extractor_args'] = {'youtube': {'player_client': ['web', 'mweb']}}
 
-    try:
-        with yt_dlp.YoutubeDL(opts_t2) as ydl:
-            info = ydl.extract_info(video_url, download=True)
-            fn = ydl.prepare_filename(info)
-            base, _ = os.path.splitext(fn)
-            mp4 = f"{base}.mp4"
-            if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
-            if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
-            m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
-            if m: return True, m[0], info.get('title',''), info.get('description','')
-    except Exception as e2:
-        pass
+        try:
+            with yt_dlp.YoutubeDL(opts_t2) as ydl:
+                info = ydl.extract_info(video_url, download=True)
+                fn = ydl.prepare_filename(info)
+                base, _ = os.path.splitext(fn)
+                mp4 = f"{base}.mp4"
+                if os.path.exists(mp4): return True, mp4, info.get('title',''), info.get('description','')
+                if os.path.exists(fn): return True, fn, info.get('title',''), info.get('description','')
+                m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
+                if m: return True, m[0], info.get('title',''), info.get('description','')
+        except Exception as e2:
+            if user_id:
+                db.log_activity(user_id, "WARNING", f"TIER 2 (web+cookies) failed: {e2}")
 
-    # TIER 3: iOS App Stream API (Bypasses Sign-In challenges 100% without cookies)
+    # TIER 3: Android App API (no cookies, uses app UA)
     opts_t3 = get_base_opts()
-    opts_t3['user_agent'] = 'com.google.ios.youtube/19.29.1 (iPhone14,3; U; CPU iOS 17_5_1 like Mac OS X; en_US)'
-    opts_t3['extractor_args'] = {'youtube': {'player_client': ['ios', 'android']}}
+    opts_t3['user_agent'] = 'com.google.android.youtube/19.29.37 (Linux; U; Android 11; en_US) gzip'
+    opts_t3['extractor_args'] = {'youtube': {'player_client': ['android', 'web_creator']}}
 
     try:
         with yt_dlp.YoutubeDL(opts_t3) as ydl:
@@ -160,12 +162,13 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
             if m: return True, m[0], info.get('title',''), info.get('description','')
     except Exception as e3:
-        pass
+        if user_id:
+            db.log_activity(user_id, "WARNING", f"TIER 3 (android app) failed: {e3}")
 
-    # TIER 4: Mobile Web Fallback API
+    # TIER 4: iOS App + TV Embedded (last resort, no cookies)
     opts_t4 = get_base_opts()
-    opts_t4['user_agent'] = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
-    opts_t4['extractor_args'] = {'youtube': {'player_client': ['mweb', 'android']}}
+    opts_t4['user_agent'] = 'com.google.ios.youtube/19.29.1 (iPhone14,3; U; CPU iOS 17_5_1 like Mac OS X; en_US)'
+    opts_t4['extractor_args'] = {'youtube': {'player_client': ['ios', 'tv_embedded']}}
 
     try:
         with yt_dlp.YoutubeDL(opts_t4) as ydl:
@@ -178,6 +181,8 @@ def download_video(video_url, video_id, max_res="4k", user_id=None):
             m = glob.glob(os.path.join(TEMP_DIR, f"{video_id}.*"))
             if m: return True, m[0], info.get('title',''), info.get('description','')
     except Exception as e4:
+        if user_id:
+            db.log_activity(user_id, "ERROR", f"ALL 4 TIERS FAILED! Last error: {e4}")
         return False, str(e4), "", ""
 
     return False, "File not found after download", "", ""
